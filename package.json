@@ -1,0 +1,14 @@
+{
+  "name": "wolfs-basement",
+  "version": "1.0.0",
+  "description": "Wolf's Basement — Visual RPG overlay for Claude Code CLI, a terminal multiplexer with pixel art skin",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  }
+}

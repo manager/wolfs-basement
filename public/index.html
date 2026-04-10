@@ -1,0 +1,2570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>WOLF'S BASEMENT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0604; font-family: 'Share Tech Mono', monospace; }
+
+    #app { display: flex; width: 100%; height: 100%; }
+
+    #game-container { width: 60%; height: 100%; position: relative; background: #080808; transition: width 0.3s ease; }
+    #game-container canvas { width: 100% !important; height: 100% !important; display: block; }
+
+    body.terminal-mode #game-container { visibility: hidden; width: 0; overflow: hidden; }
+    body.terminal-mode #dispatch-panel { width: 100%; border-left: none; }
+
+    /* =============================================
+       RIGHT PANEL
+       ============================================= */
+    #dispatch-panel {
+      width: 40%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #0c0806;
+      border-left: 2px solid #2a1008;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #dispatch-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #8a1010, #cc2020, #8a1010, #cc2020, #8a1010);
+      z-index: 100;
+    }
+
+    /* --- HEADER --- */
+    #dispatch-header {
+      padding: 14px 16px 10px;
+      border-bottom: 2px solid #2a1008;
+      background: linear-gradient(180deg, #140a06 0%, #0c0806 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #dispatch-title {
+      font-family: Impact, 'Arial Black', sans-serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: #cc3020;
+      letter-spacing: 6px;
+      text-shadow: 0 0 20px rgba(204,48,32,0.5), 2px 2px 0px #1a0804;
+      display: flex;
+      align-items: baseline;
+    }
+
+    #dispatch-title .title-sep {
+      color: #3a1810;
+      margin: 0 2px;
+    }
+
+    .mode-btn {
+      cursor: pointer;
+      transition: color 0.25s ease, text-shadow 0.25s ease;
+      user-select: none;
+    }
+
+    .mode-btn.inactive {
+      color: #4a2018;
+      text-shadow: none;
+    }
+
+    .mode-btn.inactive:hover {
+      color: #8a3828;
+      text-shadow: 0 0 10px rgba(204,48,32,0.3);
+    }
+
+    .mode-btn.active {
+      color: #cc3020;
+      text-shadow: 0 0 20px rgba(204,48,32,0.5), 2px 2px 0px #1a0804;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-color: rgba(204,48,32,0.5);
+    }
+
+    #dispatch-status {
+      font-size: 11px;
+      color: #6a3020;
+      letter-spacing: 3px;
+    }
+
+    #dispatch-status .dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #cc3020;
+      margin-right: 5px;
+      vertical-align: middle;
+      box-shadow: 0 0 8px #cc3020;
+      animation: doomPulse 1.5s infinite;
+    }
+
+    @keyframes doomPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* --- ROSTER --- */
+    #roster-section {
+      padding: 6px 10px;
+      border-bottom: 2px solid #2a1008;
+      background: #100a06;
+    }
+
+    #roster-grid { display: flex; gap: 6px; }
+
+    .agent-card {
+      flex: 1;
+      background: #0e0a08;
+      border: 1px solid #2a1810;
+      border-radius: 4px;
+      padding: 6px 4px 5px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .agent-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--agent-color);
+      opacity: 0.6;
+    }
+
+    .agent-card:hover {
+      border-color: #4a2818;
+      background: #140e0a;
+    }
+
+    .agent-card.active {
+      border-color: var(--agent-color);
+      background: #161010;
+      box-shadow: 0 0 15px rgba(var(--agent-color-rgb), 0.2), inset 0 0 20px rgba(var(--agent-color-rgb), 0.05);
+    }
+
+    .agent-card .card-icon {
+      font-size: 22px;
+      line-height: 26px;
+      margin-bottom: 2px;
+      color: #e8d0b0;
+      text-shadow: 0 0 10px rgba(232,208,176,0.4), 0 0 20px rgba(232,208,176,0.15);
+      filter: brightness(1.4) contrast(1.2) grayscale(0.7) sepia(0.3);
+    }
+
+    .agent-card .card-name {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: #c0b0a0;
+      letter-spacing: 2px;
+      margin-bottom: 3px;
+    }
+
+    .agent-card .card-status {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      padding: 2px 6px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .card-status.sleeping { color: #4a3a30; background: #1a1210; border: 1px solid #2a1a14; }
+    .card-status.awake { color: #cc6030; background: rgba(204,96,48,0.12); border: 1px solid rgba(204,96,48,0.4); }
+    .card-status.working { color: #cc3020; background: rgba(204,48,32,0.15); border: 1px solid rgba(204,48,32,0.4); animation: workPulse 1.2s infinite; }
+
+    @keyframes workPulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(204,48,32,0.1); }
+      50% { box-shadow: 0 0 14px rgba(204,48,32,0.3); }
+    }
+
+    .agent-card .card-sleep-btn {
+      display: none;
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 16px; height: 16px;
+      border-radius: 2px;
+      border: 1px solid #4a1810;
+      background: rgba(180,40,30,0.2);
+      color: #cc4030;
+      font-size: 9px;
+      line-height: 14px;
+      text-align: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .agent-card .card-sleep-btn:hover { background: rgba(200,50,30,0.45); border-color: #cc3020; }
+    .agent-card.status-awake .card-sleep-btn,
+    .agent-card.status-working .card-sleep-btn { display: block; }
+    .agent-card.dragging { opacity: 0.4; border-style: dashed; }
+    .agent-card.drag-over { border-color: #cc6030; box-shadow: 0 0 12px rgba(204,96,48,0.3); }
+
+
+    /* --- AGENT TERMINAL (per-agent) --- */
+    #terminal-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* No agent selected */
+    #no-agent-selected {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3a2018;
+      font-size: 13px;
+      text-align: center;
+      line-height: 2.2;
+      letter-spacing: 2px;
+    }
+
+    /* Terminal header with agent name */
+    #terminal-header {
+      display: none;
+      padding: 5px 14px;
+      background: #100a06;
+      border-bottom: 1px solid #1a1008;
+      align-items: center;
+    }
+
+    #terminal-header .term-agent-name {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-shadow: 1px 1px 0 #0a0404;
+    }
+
+    /* Search bar in terminal header */
+    .term-search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .term-search {
+      background: #0a0604;
+      border: 1px solid #2a1810;
+      color: #c0a898;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      outline: none;
+      width: 220px;
+    }
+    .term-search:focus { border-color: #6a2818; }
+    .term-search::placeholder { color: #3a2818; }
+    .term-search-count {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #6a5a40;
+      min-width: 32px;
+      text-align: center;
+    }
+    .term-search-nav {
+      background: none;
+      border: 1px solid #2a1810;
+      color: #6a5a40;
+      font-size: 9px;
+      padding: 2px 5px;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .term-search-nav:hover { border-color: #6a2818; color: #c0a898; }
+    #terminal-output .term-line .search-highlight {
+      background: rgba(204,160,48,0.3);
+      color: #ffe0a0;
+      border-radius: 2px;
+    }
+    #terminal-output .term-line .search-highlight.active {
+      background: rgba(204,96,48,0.5);
+      color: #fff;
+    }
+
+    /* Timestamps */
+    .term-timestamp {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #4a3a2a;
+      font-weight: 400;
+      letter-spacing: 0.3px;
+      margin-left: 6px;
+    }
+
+    /* Copy response button */
+    #terminal-output .term-line.term-text { position: relative; }
+    #terminal-output .term-line .resp-copy-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(20,14,8,0.7);
+      border: 1px solid #2a1810;
+      color: #6a5a40;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #terminal-output .term-line.term-text:hover .resp-copy-btn { opacity: 1; }
+    #terminal-output .term-line .resp-copy-btn:hover { background: rgba(60,40,20,0.9); color: #ccaa60; border-color: #6a4820; }
+    #terminal-output .term-line .resp-copy-btn.copied { color: #60cc60; border-color: #306030; }
+
+    /* Terminal output area */
+    #terminal-output {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-family: 'IBM Plex Mono', 'Consolas', 'Monaco', monospace;
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #c0a898;
+      letter-spacing: 0.2px;
+      background: #0a0604;
+    }
+
+    #terminal-output::-webkit-scrollbar { width: 8px; }
+    #terminal-output::-webkit-scrollbar-track { background: #0a0604; }
+    #terminal-output::-webkit-scrollbar-thumb { background: #2a1810; border-radius: 4px; }
+    #terminal-output::-webkit-scrollbar-thumb:hover { background: #4a2818; }
+
+    #terminal-output .term-line { margin-bottom: 2px; word-wrap: break-word; }
+    #terminal-output .term-line.term-cmd,
+    #terminal-output .term-line.term-system,
+    #terminal-output .term-line.term-error,
+    #terminal-output .term-line.term-raw { white-space: pre-wrap; }
+    #terminal-output .term-cmd { color: #e8a050; font-weight: 600; margin-top: 12px; padding: 6px 10px; border-bottom: 1px solid #2a1810; border-left: 3px solid #cc6030; background: rgba(204,96,48,0.06); border-radius: 2px; }
+    #terminal-output .term-cmd .cmd-master-tag { color: #cc6030; font-weight: 700; margin-right: 6px; letter-spacing: 1px; font-size: 11px; }
+    #terminal-output .term-text { color: #c0a898; padding: 4px 10px; border-left: 3px solid var(--agent-resp-color, #6a5040); margin-top: 2px; }
+    #terminal-output .term-text .agent-resp-tag { font-weight: 700; font-size: 11px; letter-spacing: 1px; margin-right: 6px; }
+    #terminal-output .term-tool { color: #5a7a9a; font-size: 12px; padding: 2px 0 2px 10px; border-left: 2px solid #2a3a4a; margin: 4px 0; }
+    #terminal-output .term-tool .term-tool-body { color: #8a9aaa; margin-top: 4px; padding-left: 8px; border-left: 1px solid #1a2a3a; }
+    #terminal-output .term-tool .tool-group-toggle { cursor: pointer; margin-right: 4px; display: inline-block; transition: transform 0.15s; color: #4a6a8a; }
+    #terminal-output .term-tool.tool-expanded .tool-group-toggle { transform: rotate(90deg); }
+    #terminal-output .term-tool .tool-group-details { display: none; padding: 2px 0 2px 16px; color: #4a6a7a; }
+    #terminal-output .term-tool.tool-expanded .tool-group-details { display: block; }
+    #terminal-output .term-tool .tool-group-details div { padding: 1px 0; }
+    #terminal-output .term-error { color: #cc4040; }
+    #terminal-output .term-result { color: #7a6a5a; font-size: 11px; padding: 2px 0 2px 10px; border-left: 2px solid #2a2018; margin: 2px 0; max-height: 120px; overflow-y: auto; }
+    #terminal-output .term-system { color: #5a4a3a; font-style: italic; }
+    #terminal-output .term-raw { color: #4a3a2a; font-size: 11px; }
+
+    /* --- WORKING FIRE INDICATOR --- */
+    .term-fire-indicator {
+      padding: 6px 0 2px;
+      font-size: 13px;
+      line-height: 1.1;
+      color: #cc4020;
+      white-space: pre;
+      font-family: monospace;
+      opacity: 0.7;
+      user-select: none;
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(0deg, #0c0806 60%, transparent);
+      z-index: 5;
+    }
+    .term-fire-indicator .fire-line {
+      display: block;
+      height: 14px;
+    }
+    .term-fire-indicator .fire-timer {
+      color: #5a3a20;
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-top: 2px;
+      display: block;
+    }
+
+    /* --- MARKDOWN RENDERING --- */
+    #terminal-output .term-line strong { color: #e0c0a0; font-weight: 700; }
+    #terminal-output .term-line em { color: #c0a888; font-style: italic; }
+    #terminal-output .term-line code { background: #1a1208; color: #d0a868; padding: 1px 5px; border-radius: 3px; font-size: 12px; border: 1px solid #2a1a0c; cursor: pointer; position: relative; }
+    #terminal-output .term-line code:hover { border-color: #4a3018; background: #241a0c; }
+    #terminal-output .term-line code.code-copied::after { content: 'copied!'; position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #60cc60; color: #0a0a0a; font-size: 9px; padding: 1px 6px; border-radius: 3px; pointer-events: none; }
+    #terminal-output .term-line pre code { cursor: default; }
+    #terminal-output .term-line pre code:hover { background: none; border-color: transparent; }
+    #terminal-output .term-line pre code.code-copied::after { display: none; }
+    #terminal-output .term-line pre { background: #0e0a06; border: 1px solid #2a1810; border-radius: 4px; padding: 8px 10px; margin: 4px 0; overflow-x: auto; position: relative; }
+    #terminal-output .term-line pre code { background: none; border: none; padding: 0; color: #c0a070; font-size: 12px; }
+    #terminal-output .term-line pre .code-copy-btn {
+      position: absolute;
+      top: 4px; right: 4px;
+      background: rgba(40,30,20,0.8);
+      border: 1px solid #3a2810;
+      color: #8a7050;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    #terminal-output .term-line pre:hover .code-copy-btn { opacity: 1; }
+    #terminal-output .term-line pre .code-copy-btn:hover { background: rgba(60,40,20,0.9); color: #ccaa60; border-color: #6a4820; }
+    #terminal-output .term-line pre .code-copy-btn.copied { color: #60cc60; border-color: #306030; }
+    #terminal-output .term-line .md-bullet { color: #cc6030; font-weight: bold; margin-right: 4px; }
+    #terminal-output .term-line .md-list-item { padding-left: 12px; margin: 0; line-height: 1.4; }
+    #terminal-output .term-line .md-h1 { color: #e0b878; font-size: 18px; font-weight: 900; margin: 8px 0 4px; border-bottom: 1px solid #2a1810; padding-bottom: 3px; }
+    #terminal-output .term-line .md-h2 { color: #d8b070; font-size: 16px; font-weight: 800; margin: 6px 0 3px; }
+    #terminal-output .term-line .md-h3 { color: #c8a868; font-size: 14px; font-weight: 700; margin: 4px 0 2px; }
+    #terminal-output .term-line .md-blockquote { border-left: 3px solid #4a2818; padding-left: 10px; color: #8a7060; font-style: italic; margin: 3px 0; }
+    #terminal-output .term-line .md-hr { border: none; border-top: 1px solid #2a1810; margin: 6px 0; }
+    #terminal-output .term-line .md-break { height: 8px; }
+    #terminal-output .term-line .md-table { border-collapse: collapse; margin: 6px 0; width: auto; font-size: 12px; }
+    #terminal-output .term-line .md-table th,
+    #terminal-output .term-line .md-table td { border: 1px solid #2a1810; padding: 3px 8px; text-align: left; }
+    #terminal-output .term-line .md-table th { background: #1a1008; color: #d0a868; font-weight: 700; }
+    #terminal-output .term-line .md-table td { color: #b09080; }
+    #terminal-output .term-line .md-table tr:nth-child(even) td { background: rgba(20,14,8,0.4); }
+
+    /* --- STATUS BAR --- */
+    #status-bar {
+      display: none;
+      flex-direction: column;
+      padding: 10px 14px;
+      background: #140e0a;
+      border-top: 2px solid #2a1008;
+      border-bottom: 1px solid #2a1008;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .sb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #status-bar .sb-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #status-bar .sb-label {
+      color: #6a4a30;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    #status-bar .sb-model {
+      color: #e8a040;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    #status-bar .sb-tokens {
+      color: #c0a060;
+      font-size: 12px;
+    }
+
+    #status-bar .sb-cwd {
+      color: #b09060;
+      font-size: 12px;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    #status-bar .sb-cwd:hover {
+      border-color: #3a2010;
+      background: #140a06;
+    }
+    #status-bar .sb-cwd.sb-cwd-empty {
+      color: #ccaa40;
+      border-color: #4a3010;
+      background: rgba(140,120,40,0.15);
+      font-weight: bold;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+    }
+    #status-bar .sb-cwd.sb-cwd-empty:hover {
+      background: rgba(180,150,40,0.3);
+      border-color: #ccaa40;
+    }
+
+
+    #status-bar .sb-session {
+      color: #7a5a3a;
+      font-size: 11px;
+    }
+
+    /* --- DROPDOWNS (model, mode) --- */
+    .sb-select {
+      background: #0e0806;
+      border: 1px solid #3a2010;
+      color: #d0a060;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236a4020'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+      padding-right: 20px;
+    }
+
+    .sb-select:hover { border-color: #6a3020; }
+    .sb-select:focus { border-color: #cc6030; box-shadow: 0 0 6px rgba(204,96,48,0.2); }
+    .sb-select option { background: #140a06; color: #d0a060; }
+
+    .sb-clear-btn {
+      background: rgba(180,40,30,0.15);
+      border: 1px solid #4a1810;
+      color: #cc4030;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .sb-clear-btn:hover { background: rgba(200,50,30,0.3); border-color: #cc3020; }
+    #status-bar .sb-stat { font-size: 12px; font-weight: bold; min-width: 30px; }
+    #status-bar .sb-uptime { color: #60cc60; font-size: 12px; font-weight: bold; }
+    #status-bar .sb-idle { color: #cc6030; font-size: 12px; font-weight: bold; }
+    .sb-init-btn { color: #cc8030; border-color: #4a3010; background: rgba(180,100,30,0.15); transition: all 0.3s; }
+    .sb-init-btn:hover { background: rgba(200,120,40,0.3); border-color: #cc8030; }
+    .sb-init-btn.init-pulse-soft {
+      animation: initPulseSoft 2s infinite;
+    }
+    @keyframes initPulseSoft {
+      0%, 100% { box-shadow: 0 0 3px rgba(204,128,48,0.15); background: rgba(180,100,30,0.15); }
+      50% { box-shadow: 0 0 8px rgba(204,128,48,0.35); background: rgba(200,115,35,0.25); border-color: #c09030; }
+    }
+    .sb-init-btn.init-pulse {
+      animation: initPulse 1.2s infinite;
+    }
+    @keyframes initPulse {
+      0%, 100% { box-shadow: 0 0 4px rgba(204,128,48,0.2); background: rgba(180,100,30,0.15); }
+      50% { box-shadow: 0 0 14px rgba(204,128,48,0.6); background: rgba(220,130,40,0.35); border-color: #e0a040; }
+    }
+
+    /* Context window bar */
+    .sb-context-item { gap: 6px !important; }
+    .sb-context-bar {
+      width: 60px;
+      height: 8px;
+      background: #1a1008;
+      border: 1px solid #2a1810;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .sb-context-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      transition: width 0.6s ease, background 0.6s ease;
+      background: #408040;
+    }
+    .sb-context-fill.ctx-low { background: #408040; }
+    .sb-context-fill.ctx-mid { background: #b0a030; }
+    .sb-context-fill.ctx-high { background: #cc6030; }
+    .sb-context-fill.ctx-critical { background: #cc2020; }
+    /* Git status */
+    .sb-git-item { gap: 6px !important; }
+    .sb-git-branch {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .sb-git-status {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: #8a7a60;
+    }
+
+    .sb-context-pct {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6a5a40;
+      min-width: 32px;
+    }
+
+    /* --- COMMAND INPUT --- */
+    #command-bar {
+      padding: 10px 12px;
+      background: #100a06;
+      border-top: 2px solid #2a1008;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    #command-bar .cmd-prompt {
+      padding-top: 8px;
+    }
+
+    #command-bar .cmd-prompt {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: #cc6030;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    #command-bar .cmd-master-label {
+      color: #cc6030;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    #command-input {
+      flex: 1;
+      background: #0a0604;
+      border: 1px solid #2a1810;
+      color: #d8c0b0;
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      border-radius: 3px;
+      resize: none;
+      line-height: 1.5;
+      height: 6em;
+    }
+
+    #command-input:focus {
+      border-color: #6a2818;
+      box-shadow: 0 0 10px rgba(106,40,24,0.25);
+    }
+
+    #command-input::placeholder { color: #3a2018; }
+    #command-input::-webkit-scrollbar { width: 6px; }
+    #command-input::-webkit-scrollbar-track { background: #0a0604; border-radius: 3px; }
+    #command-input::-webkit-scrollbar-thumb { background: #2a1810; border-radius: 3px; border: 1px solid #1a0c06; }
+    #command-input::-webkit-scrollbar-thumb:hover { background: #4a2818; }
+
+    .cmd-stop-btn {
+      display: none;
+      background: rgba(200,30,20,0.25);
+      border: 1px solid #cc3020;
+      color: #ff4030;
+      font-family: Impact, 'Arial Black', sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      padding: 8px 16px;
+      border-radius: 3px;
+      cursor: pointer;
+      animation: stopPulse 1s infinite;
+      flex-shrink: 0;
+    }
+    .cmd-stop-btn:hover { background: rgba(220,40,30,0.45); box-shadow: 0 0 12px rgba(220,40,30,0.4); }
+    @keyframes stopPulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(204,48,32,0.2); }
+      50% { box-shadow: 0 0 14px rgba(204,48,32,0.5); }
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes doomFlicker {
+      0%, 100% { opacity: 1; }
+      91% { opacity: 0.7; transform: translateX(2px); }
+      92% { opacity: 1; transform: translateX(0); }
+    }
+    /* #dispatch-title { animation: doomFlicker 6s infinite; } */
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="game-container"></div>
+    <div id="dispatch-panel">
+      <!-- HEADER -->
+      <div id="dispatch-header">
+        <div id="dispatch-title">WOLF'S <span id="mode-basement" style="margin-left:6px;" class="mode-btn active">BASEMENT</span><span class="title-sep"> | </span><span id="mode-terminal" class="mode-btn inactive">TERMINAL</span></div>
+        <div id="dispatch-status"><span class="dot"></span>ACTIVE</div>
+      </div>
+
+      <!-- ROSTER -->
+      <div id="roster-section">
+        <div id="roster-grid">
+          <div class="agent-card" data-id="1" draggable="true" onclick="selectAgent(1)"
+               style="--agent-color: #cc4040; --agent-color-rgb: 204,64,64;">
+            <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(1)" title="Kill">x</div>
+            <div class="card-icon">&#128367;</div>
+            <div class="card-name">IGOR</div>
+            <div class="card-status sleeping" id="card-status-1">SLEEPING</div>
+          </div>
+          <div class="agent-card" data-id="2" draggable="true" onclick="selectAgent(2)"
+               style="--agent-color: #6090cc; --agent-color-rgb: 96,144,204;">
+            <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(2)" title="Kill">x</div>
+            <div class="card-icon">&#9939;</div>
+            <div class="card-name">ELON</div>
+            <div class="card-status sleeping" id="card-status-2">SLEEPING</div>
+          </div>
+          <div class="agent-card" data-id="3" draggable="true" onclick="selectAgent(3)"
+               style="--agent-color: #60cc60; --agent-color-rgb: 96,204,96;">
+            <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
+            <div class="card-icon">&#129772;</div>
+            <div class="card-name">VLADIMIR</div>
+            <div class="card-status sleeping" id="card-status-3">SLEEPING</div>
+          </div>
+          <div class="agent-card" data-id="4" draggable="true" onclick="selectAgent(4)"
+               style="--agent-color: #ccaa40; --agent-color-rgb: 204,170,64;">
+            <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(4)" title="Kill">x</div>
+            <div class="card-icon">&#128293;</div>
+            <div class="card-name">رشيد</div>
+            <div class="card-status sleeping" id="card-status-4">SLEEPING</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMINAL AREA -->
+      <div id="terminal-section">
+        <!-- No agent selected -->
+        <div id="no-agent-selected">
+          Select an agent or press Ctrl+Shift+1/2/3/4<br>to switch between them
+        </div>
+
+        <!-- Terminal header -->
+        <div id="terminal-header">
+          <span class="term-agent-name" id="term-agent-name">—</span>
+          <div class="term-search-wrap">
+            <input type="text" id="term-search" class="term-search" placeholder="Search..." spellcheck="false" autocomplete="off">
+            <span class="term-search-count" id="term-search-count"></span>
+            <button class="term-search-nav" id="term-search-prev" onclick="termSearchNav(-1)" title="Previous">▲</button>
+            <button class="term-search-nav" id="term-search-next" onclick="termSearchNav(1)" title="Next">▼</button>
+          </div>
+        </div>
+
+        <!-- Terminal output -->
+        <div id="terminal-output"></div>
+
+        <!-- Status bar -->
+        <div id="status-bar">
+          <!-- Row 1: Model, Mode, Context Bar, INIT, CLEAR -->
+          <div class="sb-row">
+            <div class="sb-item">
+              <span class="sb-label">Model</span>
+              <select class="sb-select" id="sb-model-select" onchange="setAgentModel(this.value)">
+                <option value="claude-opus-4-6[1m]" selected>Opus 4.6 (1M)</option>
+                <option value="claude-opus-4-6">Opus 4.6</option>
+                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+              </select>
+            </div>
+            <div class="sb-item">
+              <span class="sb-label">Mode</span>
+              <select class="sb-select" id="sb-mode-select" onchange="setAgentMode(this.value)">
+                <option value="normal">Normal</option>
+                <option value="plan" selected>Plan</option>
+                <option value="bypass">Bypass</option>
+              </select>
+            </div>
+            <div class="sb-item sb-context-item" id="sb-context-item">
+              <span class="sb-label">Context</span>
+              <div class="sb-context-bar">
+                <div class="sb-context-fill" id="sb-context-fill"></div>
+              </div>
+              <span class="sb-context-pct" id="sb-context-pct">—</span>
+            </div>
+            <div class="sb-item">
+              <button class="sb-clear-btn sb-init-btn" id="sb-init-btn" onclick="initAgent()">INIT</button>
+            </div>
+            <div class="sb-item">
+              <button class="sb-clear-btn" onclick="clearAgent()">CLEAR</button>
+            </div>
+          </div>
+          <!-- Row 2: CPU, RAM, Uptime, Idle -->
+          <div class="sb-row">
+            <div class="sb-item">
+              <span class="sb-label">CPU</span>
+              <span class="sb-stat" id="sb-cpu">—</span>
+            </div>
+            <div class="sb-item">
+              <span class="sb-label">RAM</span>
+              <span class="sb-stat" id="sb-ram">—</span>
+            </div>
+            <div class="sb-item">
+              <span class="sb-label">Uptime</span>
+              <span class="sb-uptime" id="sb-uptime">—</span>
+            </div>
+            <div class="sb-item sb-idle-item" id="sb-idle-item" style="display:none">
+              <span class="sb-label">Idle</span>
+              <span class="sb-idle" id="sb-idle">—</span>
+            </div>
+          </div>
+          <!-- Row 3: Project Folder + Git -->
+          <div class="sb-row">
+            <div class="sb-item" style="min-width:0">
+              <span class="sb-label">Project Folder</span>
+              <span class="sb-cwd" id="sb-cwd" title="" onclick="editCwd()">—</span>
+            </div>
+            <div class="sb-item sb-git-item" id="sb-git-item" style="display:none">
+              <span class="sb-git-branch" id="sb-git-branch"></span>
+              <span class="sb-git-status" id="sb-git-status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMAND INPUT -->
+      <div id="command-bar">
+        <span class="cmd-prompt">
+          <span class="cmd-master-label">MASTER</span> &gt;
+        </span>
+        <textarea id="command-input" placeholder="Select an agent..." autocomplete="off" spellcheck="false" rows="5"></textarea>
+        <button class="cmd-stop-btn" id="cmd-stop-btn" onclick="stopAgentOp()">STOP</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+  <script>
+    // ===== STATE =====
+    const agentState = {};
+    window.agentState = agentState;
+    for (let i = 1; i <= 4; i++) {
+      agentState[i] = {
+        status: 'sleeping',
+        name: '',
+        termLines: [],
+        model: 'claude-opus-4-6[1m]',
+        mode: 'plan',
+        cwd: '',
+        sessionId: null,
+        awakeAt: null,     // timestamp when agent woke up
+        idleSince: null,   // timestamp when agent last became idle (awake but not working)
+        messageCount: 0,   // number of user prompts in current session
+      };
+    }
+    loadAgentSettings();
+    let selectedAgent = null;
+    let ws = null;
+    const _agentInputText = {}; // per-agent command input text
+    let _pickingFolder = false; // guard for folder picker
+
+    const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Vladimir', 4: 'رشيد' };
+    const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'VLADIMIR', 4: 'رشيد' };
+    const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#60cc60', 4: '#ccaa40' };
+
+    // ===== WEBSOCKET =====
+    function connectWS() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}`);
+      ws.onopen = () => {
+        console.log('WS connected');
+        appendToTerminal(null, 'System connected.', 'term-system');
+        const lastAgent = localStorage.getItem('selectedAgent');
+        if (lastAgent) {
+          // Wait for server to send agent_history/status before selecting
+          let attempts = 0;
+          const trySelect = setInterval(() => {
+            attempts++;
+            const id = parseInt(lastAgent);
+            if (agentState[id].termLines.length > 0 || agentState[id].status !== 'sleeping' || attempts > 20) {
+              selectAgent(id);
+              clearInterval(trySelect);
+            }
+          }, 50);
+        }
+      };
+      ws.onclose = () => {
+        console.log('WS disconnected');
+        setTimeout(connectWS, 2000);
+      };
+      ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
+    }
+
+    function handleWSMessage(msg) {
+      switch (msg.type) {
+        case 'agent_status': {
+          const prev = agentState[msg.id].status;
+          agentState[msg.id].status = msg.status;
+          if (msg.name) agentState[msg.id].name = msg.name;
+          // Track timestamps — use server-provided awakeAt if available (survives refresh)
+          if (msg.status !== 'sleeping' && !agentState[msg.id].awakeAt) {
+            agentState[msg.id].awakeAt = msg.awakeAt || Date.now();
+          }
+          if (msg.status === 'sleeping') {
+            agentState[msg.id].awakeAt = null;
+            agentState[msg.id].idleSince = null;
+          } else if (msg.status === 'awake') {
+            if (prev === 'working') {
+              // Just finished working — idle starts now
+              agentState[msg.id].idleSince = Date.now();
+            } else if (!agentState[msg.id].idleSince) {
+              // Reconnect or first awake — use server timestamp if available
+              agentState[msg.id].idleSince = (msg.lastOutputTime && msg.lastOutputTime > 0) ? msg.lastOutputTime : (agentState[msg.id].awakeAt || Date.now());
+            }
+          } else if (msg.status === 'working') {
+            agentState[msg.id].idleSince = null;
+          }
+          // Fire indicator
+          if (msg.status === 'working' && prev !== 'working') {
+            showFireIndicator(msg.id);
+          } else if (msg.status !== 'working' && prev === 'working') {
+            removeFireIndicator(msg.id);
+          }
+          updateCardStatus(msg.id);
+          if (window.gameEvents) window.gameEvents.emit('agentStatus', msg);
+          if (selectedAgent === msg.id) {
+            updateTerminalHeader();
+            updateStopButton();
+            // Update placeholder based on status
+            const input = document.getElementById('command-input');
+            if (msg.status === 'sleeping') {
+              input.placeholder = `Wake ${AGENT_NAMES[msg.id]}... (or select Project Folder to wake + assign)`;
+            } else {
+              input.placeholder = `Command ${AGENT_NAMES[msg.id]}...`;
+            }
+          }
+          break;
+        }
+
+        case 'agent_spawned':
+          agentState[msg.id].status = 'awake';
+          agentState[msg.id].name = msg.name || AGENT_NAMES[msg.id];
+          if (msg.cwd) agentState[msg.id].cwd = msg.cwd;
+          agentState[msg.id].awakeAt = Date.now();
+          agentState[msg.id].idleSince = Date.now();
+          updateCardStatus(msg.id);
+          appendToTerminal(msg.id, `[${AGENT_SHORT[msg.id]} awakened]`, 'term-system');
+          ws.send(JSON.stringify({ type: 'user_cmd', id: msg.id, text: `[${AGENT_SHORT[msg.id]} awakened]`, cls: 'term-system' }));
+          if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'awake' });
+          if (selectedAgent === msg.id) { updateTerminalHeader(); updateStatusBar(); }
+          break;
+
+        case 'agent_output':
+          if (msg.text) {
+            const cls = { tool: 'term-tool', error: 'term-error', delta: 'term-text',
+                          result: 'term-result', raw: 'term-raw', cmd: 'term-cmd', system: 'term-system' }[msg.format] || 'term-text';
+            appendToTerminal(msg.id, msg.text, cls);
+          }
+          break;
+
+        case 'agent_meta':
+          if (msg.model) agentState[msg.id].model = msg.model;
+          if (msg.usage) {
+            // input_tokens already includes cache_read + cache_creation — don't double-count
+            agentState[msg.id].tokensUsed = (msg.usage.input_tokens || msg.usage.prompt_tokens || 0);
+            agentState[msg.id].tokensTotal = (msg.usage.input_tokens || 0) + (msg.usage.output_tokens || 0);
+          }
+          if (msg.session_id) agentState[msg.id].sessionId = msg.session_id;
+          if (selectedAgent === msg.id) updateStatusBar();
+          break;
+
+        case 'agent_history':
+          // Load buffered history into terminal
+          agentState[msg.id].termLines = [];
+          msg.lines.forEach(l => {
+            // Support both old format (plain string) and new format ({text, cls, ts})
+            if (typeof l === 'string') {
+              agentState[msg.id].termLines.push({ text: l, cls: 'term-text', ts: null });
+            } else {
+              agentState[msg.id].termLines.push({ text: l.text, cls: l.cls || 'term-text', ts: l.ts || null });
+            }
+          });
+          if (selectedAgent === msg.id) renderTerminal(msg.id);
+          break;
+
+        case 'agent_cwd':
+          agentState[msg.id].cwd = msg.cwd;
+          updateCardStatus(msg.id);
+          if (selectedAgent === msg.id) updateStatusBar();
+          break;
+
+        case 'agent_error':
+          appendToTerminal(msg.id, msg.error, 'term-error');
+          break;
+
+        case 'agent_killed':
+          agentState[msg.id].status = 'sleeping';
+          agentState[msg.id].awakeAt = null;
+          agentState[msg.id].idleSince = null;
+          agentState[msg.id].messageCount = 0;
+          updateCardStatus(msg.id);
+          appendToTerminal(msg.id, `[${AGENT_SHORT[msg.id]} returned to sleep]`, 'term-system');
+          if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'sleeping' });
+          if (selectedAgent === msg.id) updateTerminalHeader();
+          break;
+      }
+    }
+
+    // ===== TERMINAL MANAGEMENT =====
+    function formatTimestamp(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const month = months[d.getMonth()];
+      const day = d.getDate();
+      let h = d.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${month} ${day}, ${h}:${min}${ampm}`;
+    }
+
+    function appendToTerminal(agentId, text, cssClass) {
+      if (agentId !== null) {
+        const ts = Date.now();
+        // Store in agent's terminal
+        agentState[agentId].termLines.push({ text, cls: cssClass, ts });
+        // Cap at 500 lines
+        if (agentState[agentId].termLines.length > 500) {
+          agentState[agentId].termLines = agentState[agentId].termLines.slice(-400);
+        }
+        // If this agent is currently selected, append live
+        if (selectedAgent === agentId) {
+          // Collapse consecutive tool lines into a single group
+          if (cssClass === 'term-tool') {
+            const out = document.getElementById('terminal-output');
+            const lastLine = out.querySelector('.term-line:last-of-type');
+            if (lastLine && lastLine.classList.contains('term-tool') && !lastLine.classList.contains('fire-indicator')) {
+              // Extract short tool label from text: "Name [tool]> Read → path" → "Read → filename"
+              const shortLabel = _toolShortLabel(text);
+              if (!lastLine._toolGroup) {
+                // Convert single line into a group
+                const firstLabel = _toolShortLabel(lastLine._toolFullText || lastLine.textContent);
+                lastLine._toolGroup = [firstLabel];
+                lastLine._toolFullText = lastLine._toolFullText || lastLine.textContent;
+              }
+              lastLine._toolGroup.push(shortLabel);
+              lastLine._toolFullTexts = (lastLine._toolFullTexts || [lastLine._toolFullText]);
+              lastLine._toolFullTexts.push(text);
+              // Update display: show collapsed summary
+              const count = lastLine._toolGroup.length;
+              lastLine.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
+                `<span class="tool-group-summary">${count} tool calls: ${lastLine._toolGroup.join(', ')}</span>` +
+                `<div class="tool-group-details">${lastLine._toolFullTexts.map(t => `<div>${escapeHtml(t)}</div>`).join('')}</div>`;
+              // Keep fire at bottom
+              const fire = document.getElementById(`fire-indicator-${agentId}`);
+              if (fire) out.appendChild(fire);
+              return;
+            }
+          }
+          appendLineToDOM(text, cssClass, ts);
+          // Store full text on tool lines for future grouping
+          if (cssClass === 'term-tool') {
+            const out = document.getElementById('terminal-output');
+            const lastEl = out.querySelector('.term-line:last-of-type');
+            if (lastEl) lastEl._toolFullText = text;
+          }
+          // Keep fire indicator always at the bottom
+          const fire = document.getElementById(`fire-indicator-${agentId}`);
+          if (fire) {
+            document.getElementById('terminal-output').appendChild(fire);
+          }
+        }
+      }
+    }
+
+    function _toolShortLabel(text) {
+      // "Vladimir [tool]> Read → C:\Wolf Vibecode\Slavery Room\server.js" → "Read → server.js"
+      const match = text.match(/\[tool\]>\s*(\w+)(?:\s*→\s*(.+))?/);
+      if (!match) return text;
+      const tool = match[1];
+      if (!match[2]) return tool;
+      const filename = match[2].split(/[/\\]/).pop();
+      return `${tool} → ${filename}`;
+    }
+
+    // ===== MARKDOWN PARSER =====
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderMarkdown(text) {
+      // Split into lines for block-level processing
+      const lines = text.split('\n');
+      const out = [];
+      let inCodeBlock = false;
+      let codeBlockContent = [];
+      let codeBlockLang = '';
+      let inTable = false;
+      let tableRows = [];
+
+      function flushTable() {
+        if (!tableRows.length) return;
+        let html = '<table class="md-table">';
+        // First row = header, second row = separator (skip), rest = body
+        const headerCells = tableRows[0];
+        html += '<thead><tr>' + headerCells.map(c => `<th>${renderInline(c.trim())}</th>`).join('') + '</tr></thead>';
+        const startIdx = (tableRows.length > 1 && /^[\s|:-]+$/.test(tableRows[1].join('|'))) ? 2 : 1;
+        if (startIdx < tableRows.length) {
+          html += '<tbody>';
+          for (let r = startIdx; r < tableRows.length; r++) {
+            html += '<tr>' + tableRows[r].map(c => `<td>${renderInline(c.trim())}</td>`).join('') + '</tr>';
+          }
+          html += '</tbody>';
+        }
+        html += '</table>';
+        out.push(html);
+        tableRows = [];
+        inTable = false;
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Code block toggle
+        if (line.trimStart().startsWith('```')) {
+          if (inTable) flushTable();
+          if (!inCodeBlock) {
+            inCodeBlock = true;
+            codeBlockLang = line.trimStart().slice(3).trim();
+            codeBlockContent = [];
+          } else {
+            inCodeBlock = false;
+            out.push(`<pre><button class="code-copy-btn" onclick="copyCodeBlock(this)">COPY</button><code>${escapeHtml(codeBlockContent.join('\n'))}</code></pre>`);
+          }
+          continue;
+        }
+        if (inCodeBlock) { codeBlockContent.push(line); continue; }
+
+        // Table detection: line starts and ends with | or has multiple | separators
+        const trimmed = line.trim();
+        const isTableRow = trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.split('|').length >= 3;
+        if (isTableRow) {
+          const cells = trimmed.slice(1, -1).split('|'); // strip outer pipes, split inner
+          if (!inTable) inTable = true;
+          tableRows.push(cells);
+          continue;
+        } else if (inTable) {
+          flushTable();
+        }
+
+        // Horizontal rule
+        if (/^(\s*[-*_]\s*){3,}$/.test(line)) { out.push('<div class="md-hr"></div>'); continue; }
+
+        // Headings
+        const hMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        if (hMatch) {
+          const level = hMatch[1].length;
+          out.push(`<div class="md-h${level}">${renderInline(hMatch[2])}</div>`);
+          continue;
+        }
+
+        // Blockquote
+        if (line.trimStart().startsWith('> ')) {
+          out.push(`<div class="md-blockquote">${renderInline(line.replace(/^\s*>\s*/, ''))}</div>`);
+          continue;
+        }
+
+        // Bullet list (-, *, +)
+        const bulletMatch = line.match(/^(\s*)([-*+])\s+(.+)$/);
+        if (bulletMatch) {
+          const indent = Math.floor(bulletMatch[1].length / 2) * 16;
+          out.push(`<div class="md-list-item" style="padding-left:${12 + indent}px"><span class="md-bullet">${bulletMatch[2]}</span>${renderInline(bulletMatch[3])}</div>`);
+          continue;
+        }
+
+        // Numbered list
+        const numMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)$/);
+        if (numMatch) {
+          const indent = Math.floor(numMatch[1].length / 2) * 16;
+          out.push(`<div class="md-list-item" style="padding-left:${12 + indent}px"><span class="md-bullet">${numMatch[2]}.</span>${renderInline(numMatch[3])}</div>`);
+          continue;
+        }
+
+        // Empty line — paragraph break
+        if (line.trim() === '') {
+          out.push('<div class="md-break"></div>');
+          continue;
+        }
+
+        // Regular line — apply inline formatting
+        out.push(`<div>${renderInline(line)}</div>`);
+      }
+
+      // Flush remaining table
+      if (inTable) flushTable();
+
+      // Close unclosed code block
+      if (inCodeBlock && codeBlockContent.length) {
+        out.push(`<pre><button class="code-copy-btn" onclick="copyCodeBlock(this)">COPY</button><code>${escapeHtml(codeBlockContent.join('\n'))}</code></pre>`);
+      }
+
+      return out.join('');
+    }
+
+    function copyCodeBlock(btn) {
+      const code = btn.parentElement.querySelector('code');
+      if (!code) return;
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'COPY';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+
+    function copyInlineCode(el) {
+      if (el.closest('pre')) return; // don't trigger on code inside pre blocks
+      navigator.clipboard.writeText(el.textContent).then(() => {
+        el.classList.add('code-copied');
+        setTimeout(() => el.classList.remove('code-copied'), 1000);
+      });
+    }
+
+    function renderInline(text) {
+      let s = escapeHtml(text);
+      // Bold: **text** or __text__
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+      // Italic: *text* or _text_ (but not inside words for _)
+      s = s.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>');
+      s = s.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, '<em>$1</em>');
+      // Inline code: `text` — clickable to copy
+      s = s.replace(/`([^`]+?)`/g, '<code onclick="copyInlineCode(this)">$1</code>');
+      return s;
+    }
+
+    // Determine agent color from response text like "Igor> ..."
+    function getAgentColorFromText(text) {
+      const allNames = { ...AGENT_SHORT, ...AGENT_NAMES };
+      for (const [id, name] of Object.entries(allNames)) {
+        if (text.startsWith(name + '>') || text.startsWith(name + ' >')) {
+          return AGENT_COLORS[id] || '#6a5040';
+        }
+      }
+      return '#6a5040';
+    }
+
+    function formatTermLine(el, text, cssClass, ts) {
+      const tsHtml = ts ? `<span class="term-timestamp">${formatTimestamp(ts)}</span>` : '';
+      if (cssClass === 'term-cmd') {
+        // User command: MASTER + timestamp + > text
+        const cmdText = text.startsWith('> ') ? text.slice(2) : text;
+        el.innerHTML = `<span class="cmd-master-tag">MASTER &gt;</span>${tsHtml} ${escapeHtml(cmdText)}`;
+      } else if (cssClass === 'term-text' || cssClass === 'term-result') {
+        // Agent response: extract agent name prefix, add colored tag
+        const agentMatch = text.match(/^(.+?)>\s*/);
+        const agentColor = getAgentColorFromText(text);
+        el.style.setProperty('--agent-resp-color', agentColor);
+        let bodyHtml;
+        if (agentMatch) {
+          const agentName = agentMatch[1].trim();
+          const body = text.slice(agentMatch[0].length);
+          bodyHtml = `<span class="agent-resp-tag" style="color:${agentColor}">${escapeHtml(agentName)} &gt;</span>${tsHtml} ${renderMarkdown(body)}`;
+        } else {
+          bodyHtml = renderMarkdown(text);
+        }
+        // Add copy button for agent responses (term-text only)
+        if (cssClass === 'term-text') {
+          bodyHtml += `<button class="resp-copy-btn" onclick="copyResponse(this)" title="Copy response">COPY</button>`;
+        }
+        el.innerHTML = bodyHtml;
+      } else if (cssClass === 'term-tool') {
+        // Tool output: first line is header, rest is content body (e.g. Write file content)
+        const nlIdx = text.indexOf('\n');
+        if (nlIdx !== -1) {
+          const header = text.slice(0, nlIdx);
+          const body = text.slice(nlIdx + 1);
+          el.innerHTML = `<div>${escapeHtml(header)}</div><div class="term-tool-body">${renderMarkdown(body)}</div>`;
+        } else {
+          el.textContent = text;
+        }
+      } else {
+        el.textContent = text;
+      }
+    }
+
+    function copyResponse(btn) {
+      const line = btn.closest('.term-line');
+      if (!line) return;
+      // Clone and strip UI elements
+      const clone = line.cloneNode(true);
+      clone.querySelectorAll('.resp-copy-btn, .agent-resp-tag, .term-timestamp').forEach(b => b.remove());
+      const html = clone.innerHTML.trim();
+      const text = clone.textContent.trim();
+      // Write both HTML and plain text to clipboard
+      navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+        })
+      ]).then(() => {
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('copied'); }, 1500);
+      });
+    }
+
+    function appendLineToDOM(text, cssClass, ts) {
+      const out = document.getElementById('terminal-output');
+      // Only auto-scroll if user is near the bottom (within 80px)
+      const nearBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 80;
+      const line = document.createElement('div');
+      line.className = `term-line ${cssClass}`;
+      formatTermLine(line, text, cssClass, ts);
+      out.appendChild(line);
+      if (nearBottom) out.scrollTop = out.scrollHeight;
+    }
+
+    function renderTerminal(id) {
+      const out = document.getElementById('terminal-output');
+      out.innerHTML = '';
+      const lines = agentState[id].termLines;
+      let toolGroup = []; // accumulate consecutive tool lines
+      function flushToolGroup() {
+        if (toolGroup.length === 0) return;
+        const el = document.createElement('div');
+        el.className = 'term-line term-tool';
+        if (toolGroup.length === 1) {
+          formatTermLine(el, toolGroup[0].text, 'term-tool', toolGroup[0].ts);
+        } else {
+          const labels = toolGroup.map(t => _toolShortLabel(t.text));
+          el.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
+            `<span class="tool-group-summary">${toolGroup.length} tool calls: ${labels.join(', ')}</span>` +
+            `<div class="tool-group-details">${toolGroup.map(t => `<div>${escapeHtml(t.text)}</div>`).join('')}</div>`;
+        }
+        out.appendChild(el);
+        toolGroup = [];
+      }
+      lines.forEach(l => {
+        if (l.cls === 'term-tool') {
+          toolGroup.push(l);
+        } else {
+          flushToolGroup();
+          const el = document.createElement('div');
+          el.className = `term-line ${l.cls}`;
+          formatTermLine(el, l.text, l.cls, l.ts);
+          out.appendChild(el);
+        }
+      });
+      flushToolGroup();
+      out.scrollTop = out.scrollHeight;
+    }
+
+    // ===== CARD STATUS =====
+    function updateCardStatus(id) {
+      const status = agentState[id].status;
+      const el = document.getElementById(`card-status-${id}`);
+      if (!el) return;
+      el.className = `card-status ${status}`;
+      el.textContent = status.toUpperCase();
+      const card = el.closest('.agent-card');
+      card.classList.remove('status-sleeping', 'status-awake', 'status-working');
+      card.classList.add(`status-${status}`);
+      // Hover tooltip with project folder
+      const cwd = agentState[id].cwd;
+      card.title = status !== 'sleeping' && cwd ? `Project: ${cwd}` : '';
+    }
+
+    // ===== TERMINAL HEADER =====
+    function updateTerminalHeader() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      const nameEl = document.getElementById('term-agent-name');
+      nameEl.textContent = AGENT_SHORT[selectedAgent];
+      nameEl.style.color = AGENT_COLORS[selectedAgent];
+    }
+
+    // ===== STATUS BAR =====
+    function updateStatusBar() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      document.getElementById('sb-model-select').value = state.model;
+      document.getElementById('sb-mode-select').value = state.mode;
+      const cwdEl = document.getElementById('sb-cwd');
+      if (state.cwd) {
+        cwdEl.textContent = state.cwd;
+        cwdEl.title = state.cwd;
+        cwdEl.classList.remove('sb-cwd-empty');
+      } else {
+        cwdEl.textContent = '📂 SELECT FOLDER';
+        cwdEl.title = 'Click to pick a working directory';
+        cwdEl.classList.add('sb-cwd-empty');
+      }
+      updateContextBar();
+      if (typeof tickGitStatus === 'function') tickGitStatus();
+    }
+
+    function updateContextBar() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      const fill = document.getElementById('sb-context-fill');
+      const pct = document.getElementById('sb-context-pct');
+      const initBtn = document.getElementById('sb-init-btn');
+      const inputTokens = state.tokensUsed || 0;
+
+      const ctxItem = document.getElementById('sb-context-item');
+      if (!inputTokens) {
+        fill.style.width = '0%';
+        fill.className = 'sb-context-fill';
+        pct.textContent = '—';
+        pct.style.color = '#6a5a40';
+        const is1M = state.model && state.model.includes('[1m]');
+        const maxFmt = is1M ? '1,000,000' : '200,000';
+        ctxItem.title = `Context window: 0 / ${maxFmt} tokens used`;
+        updateInitPulse(initBtn, 0);
+        return;
+      }
+
+      // Context window size based on model
+      const is1M = state.model && state.model.includes('[1m]');
+      const maxTokens = is1M ? 1000000 : 200000;
+      const ratio = Math.min(1, inputTokens / maxTokens);
+      const percent = Math.round(ratio * 100);
+
+      fill.style.width = percent + '%';
+      fill.className = 'sb-context-fill ' + (
+        ratio < 0.3 ? 'ctx-low' :
+        ratio < 0.6 ? 'ctx-mid' :
+        ratio < 0.8 ? 'ctx-high' : 'ctx-critical'
+      );
+
+      // Format token count — only show detail when meaningful
+      let tokensLabel;
+      if (inputTokens >= 1000000) tokensLabel = (inputTokens / 1000000).toFixed(1) + 'M';
+      else if (inputTokens >= 1000) tokensLabel = (inputTokens / 1000).toFixed(0) + 'k';
+      else tokensLabel = null; // too small to matter
+      pct.textContent = tokensLabel ? `${percent}% (${tokensLabel})` : `${percent}%`;
+      pct.style.color = ratio < 0.3 ? '#60cc60' : ratio < 0.6 ? '#ccaa30' : ratio < 0.8 ? '#cc6030' : '#cc2020';
+
+      // Hover tooltip with exact numbers
+      const usedFmt = inputTokens.toLocaleString();
+      const maxFmt = maxTokens.toLocaleString();
+      ctxItem.title = `Context window: ${usedFmt} / ${maxFmt} tokens used (${percent}%)\nPress INIT to compact and free context`;
+
+      // Pulse INIT based on context fullness and message count
+      updateInitPulse(initBtn, ratio);
+    }
+
+    function updateInitPulse(initBtn, contextRatio) {
+      if (!initBtn) return;
+      if (!selectedAgent) return;
+      const msgs = agentState[selectedAgent].messageCount || 0;
+      const ctxHigh = contextRatio > 0.7;
+      const msgsHigh = msgs >= 30;
+      const msgsMed = msgs >= 15;
+
+      // Remove all pulse classes first
+      initBtn.classList.remove('init-pulse', 'init-pulse-soft');
+
+      // Determine pulse level and tooltip
+      if (ctxHigh && msgsHigh) {
+        initBtn.classList.add('init-pulse');
+        initBtn.title = `Context 70%+ full & ${msgs} messages — INIT strongly recommended`;
+      } else if (ctxHigh) {
+        initBtn.classList.add('init-pulse');
+        initBtn.title = `Context window 70%+ full — INIT to free space`;
+      } else if (msgsHigh) {
+        initBtn.classList.add('init-pulse');
+        initBtn.title = `${msgs} messages — session getting long, INIT recommended`;
+      } else if (msgsMed) {
+        initBtn.classList.add('init-pulse-soft');
+        initBtn.title = `${msgs} messages in session — consider saving progress`;
+      } else {
+        initBtn.title = 'Save progress & compact context (INIT)';
+      }
+    }
+
+    // ===== AGENT SELECTION =====
+    function selectAgent(id) {
+      // Save previous agent's input text before switching
+      const input = document.getElementById('command-input');
+      if (selectedAgent && selectedAgent !== id) {
+        _agentInputText[selectedAgent] = input.value;
+      }
+      selectedAgent = id;
+
+      // Update cards
+      document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+      const card = document.querySelector(`.agent-card[data-id="${id}"]`);
+      if (card) card.classList.add('active');
+
+      // Show terminal
+      document.getElementById('no-agent-selected').style.display = 'none';
+      document.getElementById('terminal-header').style.display = 'flex';
+      document.getElementById('terminal-output').style.display = 'block';
+      document.getElementById('status-bar').style.display = 'flex';
+
+      updateTerminalHeader();
+      updateStatusBar();
+      updateStopButton();
+      renderTerminal(id);
+
+      // Restore per-agent search query
+      const searchInput = document.getElementById('term-search');
+      const savedQuery = _searchPerAgent[id] || '';
+      searchInput.value = savedQuery;
+      if (savedQuery) { termSearchExec(savedQuery); } else { termSearchClear(); }
+
+      // Show fire indicator if agent is currently working
+      if (agentState[id].status === 'working') {
+        showFireIndicator(id);
+      }
+
+      // Restore per-agent input text
+      input.value = _agentInputText[id] || '';
+      if (agentState[id].status === 'sleeping') {
+        input.placeholder = `Wake ${AGENT_NAMES[id]}... (or select Project Folder to wake + assign)`;
+      } else {
+        input.placeholder = `Command ${AGENT_NAMES[id]}...`;
+      }
+      input.focus();
+
+      if (window.gameEvents) window.gameEvents.emit('agentSelected', id);
+      localStorage.setItem('selectedAgent', id);
+    }
+
+    function stopAgentOp() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      if (state.status !== 'working') return;
+      ws.send(JSON.stringify({ type: 'stop', id: selectedAgent }));
+      removeFireIndicator(selectedAgent);
+      appendToTerminal(selectedAgent, '[Operation cancelled]', 'term-system');
+    }
+
+    function updateStopButton() {
+      const btn = document.getElementById('cmd-stop-btn');
+      if (!btn) return;
+      if (selectedAgent && agentState[selectedAgent].status === 'working') {
+        btn.style.display = 'block';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    function sleepAgent(id) {
+      if (!ws || agentState[id].status === 'sleeping') return;
+      // Trigger terminal burn animation if this agent's terminal is visible
+      if (selectedAgent === id) {
+        const out = document.getElementById('terminal-output');
+        if (out && out.children.length > 0) {
+          // Run burn animation, then send sleep + clear terminal
+          const rect = out.getBoundingClientRect();
+          const overlay = document.createElement('canvas');
+          overlay.width = rect.width;
+          overlay.height = rect.height;
+          overlay.style.cssText = `position:absolute;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;`;
+          document.body.appendChild(overlay);
+          const ctx = overlay.getContext('2d');
+          const lines = out.querySelectorAll('.term-line');
+          const startTime = Date.now();
+          const duration = 1500;
+          const particles = [];
+          for (let i = 0; i < 120; i++) {
+            particles.push({ x: Math.random()*rect.width, y: rect.height+Math.random()*20,
+              vx: (Math.random()-0.5)*3, vy: -(2+Math.random()*5), size: 2+Math.random()*4,
+              life: 0.5+Math.random()*0.5, born: Math.random()*0.6, hue: Math.random() });
+          }
+          function animateSleepBurn() {
+            const elapsed = Date.now()-startTime;
+            const p = Math.min(elapsed/duration, 1);
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            const burnLine = rect.height*(1-p*1.3);
+            lines.forEach(line => {
+              const lineRect = line.getBoundingClientRect();
+              const lineY = lineRect.top-rect.top;
+              const lineBottom = lineY+lineRect.height;
+              if (lineBottom > burnLine) {
+                const lp = Math.min(1, (lineBottom-burnLine)/60);
+                if (lp < 0.4) { line.style.color = `rgb(${180+lp*180},${60-lp*60},20)`; line.style.textShadow = `0 0 ${lp*15}px rgba(255,100,20,${lp})`; }
+                else { const fade = Math.min(1,(lp-0.4)/0.4); line.style.opacity = Math.max(0,1-fade); line.style.color = '#1a0800'; line.style.textShadow = 'none'; }
+              }
+            });
+            particles.forEach(part => {
+              if (p < part.born) return;
+              const partAge = (p-part.born)/part.life;
+              if (partAge > 1) return;
+              const px = part.x+part.vx*partAge*30;
+              const py = Math.min(rect.height,burnLine+30)+part.vy*partAge*40+part.y*0.1;
+              const alpha = partAge < 0.3 ? partAge/0.3 : Math.max(0,1-(partAge-0.3)/0.7);
+              const size = part.size*(1-partAge*0.5);
+              ctx.fillStyle = `rgba(255,${Math.min(255,Math.floor(40+part.hue*180+partAge*60))},${Math.floor(part.hue*40)},${alpha*0.9})`;
+              ctx.fillRect(px-size/2,py-size/2,size,size);
+            });
+            if (p < 0.9) {
+              const glowY = Math.max(0,burnLine);
+              const grad = ctx.createLinearGradient(0,glowY-20,0,glowY+40);
+              grad.addColorStop(0,'rgba(255,60,10,0)'); grad.addColorStop(0.5,`rgba(255,160,40,${0.6*(1-p)})`); grad.addColorStop(1,'rgba(255,40,10,0)');
+              ctx.fillStyle = grad; ctx.fillRect(0,glowY-20,rect.width,60);
+            }
+            if (p < 1) { requestAnimationFrame(animateSleepBurn); }
+            else {
+              overlay.remove();
+              agentState[id].termLines = [];
+              renderTerminal(id);
+            }
+          }
+          requestAnimationFrame(animateSleepBurn);
+        }
+      } else {
+        // Not viewing this agent's terminal — just clear silently
+        agentState[id].termLines = [];
+      }
+      ws.send(JSON.stringify({ type: 'sleep', id }));
+    }
+
+    function saveAgentSettings() {
+      const settings = {};
+      for (let i = 1; i <= 4; i++) {
+        settings[i] = { model: agentState[i].model, mode: agentState[i].mode };
+      }
+      localStorage.setItem('agentSettings', JSON.stringify(settings));
+    }
+
+    function loadAgentSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('agentSettings'));
+        if (!saved) return;
+        for (let i = 1; i <= 4; i++) {
+          if (saved[i]) {
+            if (saved[i].model) agentState[i].model = saved[i].model;
+            if (saved[i].mode) agentState[i].mode = saved[i].mode;
+          }
+        }
+      } catch(e) {}
+    }
+
+    function setAgentModel(model) {
+      if (!selectedAgent) return;
+      agentState[selectedAgent].model = model;
+      // Clear session so next command uses new model
+      ws.send(JSON.stringify({ type: 'clear', id: selectedAgent }));
+      agentState[selectedAgent].sessionId = null;
+      appendToTerminal(selectedAgent, `[Model set to ${model} — session reset]`, 'term-system');
+      saveAgentSettings();
+    }
+
+    function clearAgent() {
+      if (!selectedAgent) return;
+      const agentId = selectedAgent;
+      const out = document.getElementById('terminal-output');
+      if (!out || out.children.length === 0) {
+        // Nothing to burn — just clear
+        finalizeClear(agentId);
+        return;
+      }
+
+      // === BURN ANIMATION ===
+      // Create overlay canvas on top of terminal
+      const rect = out.getBoundingClientRect();
+      const overlay = document.createElement('canvas');
+      overlay.width = rect.width;
+      overlay.height = rect.height;
+      overlay.style.cssText = `position:absolute;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;`;
+      document.body.appendChild(overlay);
+      const ctx = overlay.getContext('2d');
+
+      // Snapshot the terminal text as-is for the burn
+      const lines = out.querySelectorAll('.term-line');
+
+      const startTime = Date.now();
+      const duration = 1500;
+      let frame = 0;
+
+      // Fire particle pool
+      const particles = [];
+      for (let i = 0; i < 120; i++) {
+        particles.push({
+          x: Math.random() * rect.width,
+          y: rect.height + Math.random() * 20,
+          vx: (Math.random() - 0.5) * 3,
+          vy: -(2 + Math.random() * 5),
+          size: 2 + Math.random() * 4,
+          life: 0.5 + Math.random() * 0.5,
+          born: Math.random() * 0.6, // stagger spawn
+          hue: Math.random(), // 0=red, 0.5=orange, 1=yellow
+        });
+      }
+
+      function animateBurn() {
+        const elapsed = Date.now() - startTime;
+        const p = Math.min(elapsed / duration, 1);
+        ctx.clearRect(0, 0, rect.width, rect.height);
+
+        // === Phase 1: Fire sweeps upward from bottom ===
+        const burnLine = rect.height * (1 - p * 1.3); // fire front moves up
+
+        // Char/blacken text lines from bottom up
+        lines.forEach((line, i) => {
+          const lineRect = line.getBoundingClientRect();
+          const lineY = lineRect.top - rect.top;
+          const lineBottom = lineY + lineRect.height;
+
+          if (lineBottom > burnLine) {
+            // This line is being consumed
+            const lineProgress = Math.min(1, (lineBottom - burnLine) / 60);
+            // Redden then blacken
+            if (lineProgress < 0.4) {
+              line.style.color = `rgb(${180 + lineProgress * 180}, ${60 - lineProgress * 60}, ${20})`;
+              line.style.textShadow = `0 0 ${lineProgress * 15}px rgba(255,100,20,${lineProgress})`;
+            } else {
+              const fade = Math.min(1, (lineProgress - 0.4) / 0.4);
+              line.style.opacity = Math.max(0, 1 - fade);
+              line.style.color = '#1a0800';
+              line.style.textShadow = 'none';
+            }
+          }
+        });
+
+        // === Phase 2: Fire particles ===
+        particles.forEach(part => {
+          if (p < part.born) return;
+          const partAge = (p - part.born) / part.life;
+          if (partAge > 1) return;
+
+          // Move upward
+          const px = part.x + part.vx * partAge * 30;
+          const py = Math.min(rect.height, burnLine + 30) + part.vy * partAge * 40 + part.y * 0.1;
+          const alpha = partAge < 0.3 ? partAge / 0.3 : Math.max(0, 1 - (partAge - 0.3) / 0.7);
+          const size = part.size * (1 - partAge * 0.5);
+
+          // Color: red → orange → yellow based on hue
+          const r = 255;
+          const g = Math.floor(40 + part.hue * 180 + partAge * 60);
+          const b = Math.floor(part.hue * 40);
+
+          ctx.fillStyle = `rgba(${r},${Math.min(255, g)},${b},${alpha * 0.9})`;
+          ctx.fillRect(px - size/2, py - size/2, size, size);
+        });
+
+        // === Phase 3: Ember glow at burn line ===
+        if (p < 0.9) {
+          const glowY = Math.max(0, burnLine);
+          const grad = ctx.createLinearGradient(0, glowY - 20, 0, glowY + 40);
+          grad.addColorStop(0, 'rgba(255,60,10,0)');
+          grad.addColorStop(0.3, `rgba(255,80,20,${0.4 * (1 - p)})`);
+          grad.addColorStop(0.5, `rgba(255,160,40,${0.6 * (1 - p)})`);
+          grad.addColorStop(0.7, `rgba(255,80,20,${0.3 * (1 - p)})`);
+          grad.addColorStop(1, 'rgba(255,40,10,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, glowY - 20, rect.width, 60);
+        }
+
+        // === Phase 4: Ash/smoke at the end ===
+        if (p > 0.6) {
+          const smokeAlpha = (p - 0.6) / 0.4;
+          for (let i = 0; i < 5; i++) {
+            const sx = rect.width * (0.1 + i * 0.2) + Math.sin(elapsed * 0.003 + i) * 20;
+            const sy = 20 + Math.cos(elapsed * 0.002 + i * 1.5) * 10 - smokeAlpha * 30;
+            ctx.fillStyle = `rgba(60,50,40,${0.08 * smokeAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 30 + smokeAlpha * 20, 15 + smokeAlpha * 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        frame++;
+        if (p < 1) {
+          requestAnimationFrame(animateBurn);
+        } else {
+          // Cleanup
+          overlay.remove();
+          finalizeClear(agentId);
+        }
+      }
+
+      requestAnimationFrame(animateBurn);
+    }
+
+    function finalizeClear(agentId) {
+      ws.send(JSON.stringify({ type: 'clear', id: agentId }));
+      agentState[agentId].termLines = [];
+      agentState[agentId].sessionId = null;
+      agentState[agentId].tokensUsed = 0;
+      agentState[agentId].tokensTotal = 0;
+      agentState[agentId].messageCount = 0;
+      renderTerminal(agentId);
+      updateStatusBar();
+      appendToTerminal(agentId, '[Context cleared — fresh session]', 'term-system');
+    }
+
+    function editCwd() {
+      if (!selectedAgent || _pickingFolder) return;
+      _pickingFolder = true;
+      const agentId = selectedAgent;
+      const current = agentState[agentId].cwd || '';
+      const cwdEl = document.getElementById('sb-cwd');
+      cwdEl.textContent = 'browsing...';
+      cwdEl.style.opacity = '0.5';
+
+      fetch(`/pick-folder?start=${encodeURIComponent(current)}`)
+        .then(r => r.json())
+        .then(data => {
+          _pickingFolder = false;
+          cwdEl.style.opacity = '1';
+          if (data.folder && data.folder !== current) {
+            const state = agentState[agentId];
+            state.cwd = data.folder;
+            ws.send(JSON.stringify({ type: 'set_cwd', id: agentId, cwd: data.folder }));
+            cwdEl.textContent = data.folder;
+            cwdEl.title = data.folder;
+            cwdEl.classList.remove('sb-cwd-empty');
+            appendToTerminal(agentId, `[Working directory set to ${data.folder}]`, 'term-system');
+            ws.send(JSON.stringify({ type: 'user_cmd', id: agentId, text: `[Working directory set to ${data.folder}]`, cls: 'term-system' }));
+
+            // Auto-send a command so the agent acknowledges the new project
+            const modeLabels = { normal: 'Normal (ask permissions)', plan: 'Plan (read-only, no changes)', bypass: 'Bypass (full access, no permission prompts)' };
+            const modeDesc = modeLabels[state.mode] || state.mode;
+            const intro = `We will now work on the project in this folder: ${data.folder}. Look around, read CLAUDE.md or README if they exist, and briefly tell me what this project is. Also confirm: you are running as model "${state.model}" in "${modeDesc}" mode. Be concise — 2-3 sentences about the project, then one line confirming your model and mode.`;
+            if (state.status === 'sleeping') {
+              ws.send(JSON.stringify({ type: 'summon', id: agentId }));
+            }
+            ws.send(JSON.stringify({ type: 'command', id: agentId, text: intro, model: state.model, mode: state.mode, label: `> cd ${data.folder}` }));
+            appendToTerminal(agentId, `> cd ${data.folder}`, 'term-cmd');
+          } else {
+            // Cancelled or same folder — restore proper display
+            if (current) {
+              cwdEl.textContent = current;
+              cwdEl.title = current;
+              cwdEl.classList.remove('sb-cwd-empty');
+            } else {
+              cwdEl.textContent = '📂 SELECT FOLDER';
+              cwdEl.title = 'Click to pick a working directory';
+              cwdEl.classList.add('sb-cwd-empty');
+            }
+          }
+        })
+        .catch(() => {
+          _pickingFolder = false;
+          cwdEl.style.opacity = '1';
+          if (current) {
+            cwdEl.textContent = current;
+            cwdEl.title = current;
+          } else {
+            cwdEl.textContent = '📂 SELECT FOLDER';
+            cwdEl.title = 'Click to pick a working directory';
+            cwdEl.classList.add('sb-cwd-empty');
+          }
+        });
+    }
+
+    function initAgent() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      const initPrompt = 'Compact our conversation: summarize key context, decisions, and progress so far. Update CLAUDE.md with current project state, architecture notes, and any conventions discovered. If an AGENTS.md exists, update it too. Keep all summaries concise and useful for resuming work later. Preserve any file paths, config, or decisions that would be costly to re-derive.';
+      if (state.status === 'sleeping') {
+        ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+      }
+      ws.send(JSON.stringify({ type: 'command', id: selectedAgent, text: initPrompt, model: state.model, mode: state.mode, label: '> /init' }));
+      appendToTerminal(selectedAgent, '> /init', 'term-cmd');
+      showStarburst();
+    }
+
+    function showStarburst() {
+      const out = document.getElementById('terminal-output');
+      if (!out) return;
+      const rect = out.getBoundingClientRect();
+
+      const overlay = document.createElement('canvas');
+      overlay.width = rect.width * 2; // 2x for sharpness
+      overlay.height = rect.height * 2;
+      overlay.style.cssText = `position:absolute;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;`;
+      document.body.appendChild(overlay);
+      const ctx = overlay.getContext('2d');
+      ctx.scale(2, 2);
+      const w = rect.width, h = rect.height;
+      const cx = w / 2, cy = h / 2;
+
+      const startTime = Date.now();
+      const duration = 1200;
+
+      function animateStar() {
+        const elapsed = Date.now() - startTime;
+        const p = Math.min(elapsed / duration, 1);
+        ctx.clearRect(0, 0, w, h);
+
+        // Background flash
+        if (p < 0.15) {
+          const flashAlpha = (1 - p / 0.15) * 0.3;
+          ctx.fillStyle = `rgba(255,220,100,${flashAlpha})`;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Starburst rays expanding from center
+        const rayCount = 16;
+        const maxRadius = Math.max(w, h) * 0.8;
+        const rayRadius = p < 0.3 ? (p / 0.3) * maxRadius : maxRadius;
+        const rayAlpha = p < 0.3 ? 0.7 : Math.max(0, 0.7 * (1 - (p - 0.3) / 0.7));
+        const rotation = p * 0.5; // slow spin
+
+        for (let i = 0; i < rayCount; i++) {
+          const angle = (i / rayCount) * Math.PI * 2 + rotation;
+          const halfWidth = (i % 2 === 0 ? 0.08 : 0.05);
+          const a1 = angle - halfWidth;
+          const a2 = angle + halfWidth;
+
+          const color = i % 2 === 0
+            ? `rgba(255,200,60,${rayAlpha})`
+            : `rgba(255,160,30,${rayAlpha * 0.7})`;
+
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(a1) * rayRadius, cy + Math.sin(a1) * rayRadius);
+          ctx.lineTo(cx + Math.cos(a2) * rayRadius, cy + Math.sin(a2) * rayRadius);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Center glow
+        const glowSize = p < 0.2 ? (p / 0.2) * 60 : 60 + (p - 0.2) * 20;
+        const glowAlpha = p < 0.4 ? 0.9 : Math.max(0, 0.9 * (1 - (p - 0.4) / 0.6));
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowSize);
+        grad.addColorStop(0, `rgba(255,255,220,${glowAlpha})`);
+        grad.addColorStop(0.3, `rgba(255,220,80,${glowAlpha * 0.8})`);
+        grad.addColorStop(0.6, `rgba(255,160,30,${glowAlpha * 0.4})`);
+        grad.addColorStop(1, `rgba(255,100,10,0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(cx - glowSize, cy - glowSize, glowSize * 2, glowSize * 2);
+
+        // "GOOD JOB!!!" text — slams in and holds
+        const textScale = p < 0.1 ? p / 0.1 : p < 0.15 ? 1 + (1 - (p - 0.1) / 0.05) * 0.3 : 1; // overshoot bounce
+        const textAlpha = p < 0.15 ? 1 : p > 0.7 ? Math.max(0, (1 - p) / 0.3) : 1;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(textScale, textScale);
+        ctx.font = 'bold 36px Impact, "Arial Black", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // Shadow/outline
+        ctx.fillStyle = `rgba(80,30,0,${textAlpha})`;
+        ctx.fillText('GOOD JOB!!!', 2, 2);
+        // Main text
+        ctx.fillStyle = `rgba(255,240,200,${textAlpha})`;
+        ctx.fillText('GOOD JOB!!!', 0, 0);
+        // Bright stroke
+        ctx.strokeStyle = `rgba(255,180,60,${textAlpha * 0.8})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeText('GOOD JOB!!!', 0, 0);
+        ctx.restore();
+
+        // Sparkle particles
+        if (p > 0.05 && p < 0.8) {
+          const sparkCount = 20;
+          for (let i = 0; i < sparkCount; i++) {
+            const sa = (i / sparkCount) * Math.PI * 2 + p * 3;
+            const sr = 30 + p * maxRadius * 0.4 + Math.sin(i * 2.3) * 20;
+            const sx = cx + Math.cos(sa) * sr;
+            const sy = cy + Math.sin(sa) * sr;
+            const sparkAlpha = Math.max(0, 0.8 - p);
+            const sparkSize = 2 + Math.sin(elapsed * 0.02 + i) * 1.5;
+            ctx.fillStyle = `rgba(255,255,200,${sparkAlpha})`;
+            ctx.fillRect(sx - sparkSize/2, sy - sparkSize/2, sparkSize, sparkSize);
+          }
+        }
+
+        if (p < 1) {
+          requestAnimationFrame(animateStar);
+        } else {
+          overlay.remove();
+        }
+      }
+
+      requestAnimationFrame(animateStar);
+    }
+
+    function setAgentMode(mode) {
+      if (!selectedAgent) return;
+      agentState[selectedAgent].mode = mode;
+      const labels = { normal: 'Normal', plan: 'Plan Mode', bypass: 'Bypass Permissions' };
+      appendToTerminal(selectedAgent, `[Mode set to ${labels[mode]}]`, 'term-system');
+      saveAgentSettings();
+    }
+
+    // ===== PASTE / ATTACHMENTS =====
+    let pendingImages = []; // { data: base64, mediaType: string, name: string }
+
+    function updateAttachmentIndicator() {
+      let ind = document.getElementById('attachment-indicator');
+      if (pendingImages.length === 0) {
+        if (ind) ind.remove();
+        return;
+      }
+      if (!ind) {
+        ind = document.createElement('div');
+        ind.id = 'attachment-indicator';
+        ind.style.cssText = 'padding:4px 12px;background:#1a1208;border-top:1px solid #2a1810;font-size:11px;color:#cc8030;display:flex;align-items:center;gap:8px;flex-shrink:0;';
+        document.getElementById('command-bar').insertAdjacentElement('beforebegin', ind);
+      }
+      ind.innerHTML = `<span style="color:#ccaa40">📎 ${pendingImages.length} file${pendingImages.length > 1 ? 's' : ''} attached</span>` +
+        pendingImages.map((img, i) => `<span style="background:#2a1810;padding:2px 6px;border-radius:3px;font-size:10px;color:#b09060">${img.name} <span style="cursor:pointer;color:#cc4030;margin-left:4px" onclick="removeAttachment(${i})">✕</span></span>`).join('') +
+        `<span style="cursor:pointer;color:#cc4030;margin-left:auto;font-size:10px" onclick="clearAttachments()">CLEAR ALL</span>`;
+    }
+
+    function removeAttachment(idx) {
+      pendingImages.splice(idx, 1);
+      updateAttachmentIndicator();
+    }
+
+    function clearAttachments() {
+      pendingImages = [];
+      updateAttachmentIndicator();
+    }
+
+    // Ctrl+V paste handler — images from clipboard
+    document.addEventListener('paste', (e) => {
+      if (!selectedAgent) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            pendingImages.push({
+              data: base64,
+              mediaType: item.type,
+              name: file.name || `image.${item.type.split('/')[1]}`
+            });
+            updateAttachmentIndicator();
+            document.getElementById('command-input').focus();
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+
+    // Also support drag & drop files
+    const cmdBar = document.getElementById('command-bar');
+    cmdBar.addEventListener('dragover', (e) => { e.preventDefault(); cmdBar.style.borderColor = '#ccaa40'; });
+    cmdBar.addEventListener('dragleave', () => { cmdBar.style.borderColor = ''; });
+    cmdBar.addEventListener('drop', (e) => {
+      e.preventDefault();
+      cmdBar.style.borderColor = '';
+      if (!selectedAgent) return;
+      for (const file of e.dataTransfer.files) {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            pendingImages.push({
+              data: reader.result.split(',')[1],
+              mediaType: file.type,
+              name: file.name
+            });
+            updateAttachmentIndicator();
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+
+    // ===== INPUT =====
+    document.getElementById('command-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && selectedAgent) {
+        e.preventDefault();
+        const input = e.target;
+        const text = input.value.trim();
+        if (!text && pendingImages.length === 0) return;
+        const state = agentState[selectedAgent];
+        // Auto-summon if sleeping — server handles sequencing
+        if (state.status === 'sleeping') {
+          ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+        }
+        const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: state.model, mode: state.mode };
+        if (pendingImages.length > 0) {
+          msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
+          console.log(`Sending ${msg.images.length} images, total size: ${JSON.stringify(msg).length} bytes`);
+        }
+        const label = pendingImages.length > 0 ? `> ${text || '(image)'} [+${pendingImages.length} file${pendingImages.length > 1 ? 's' : ''}]` : `> ${text}`;
+        msg.label = label; // include display label so server stores it in history
+        ws.send(JSON.stringify(msg));
+        agentState[selectedAgent].messageCount++;
+        appendToTerminal(selectedAgent, label, 'term-cmd');
+        input.value = '';
+        _agentInputText[selectedAgent] = '';
+        pendingImages = [];
+        updateAttachmentIndicator();
+      }
+    });
+
+    // ===== KEYBOARD =====
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+Shift+1-4 switches agents by visual position (respects drag-reorder)
+      if (e.ctrlKey && e.shiftKey && e.code >= 'Digit1' && e.code <= 'Digit4') {
+        e.preventDefault();
+        const pos = parseInt(e.code.charAt(5)) - 1; // 0-based position
+        const cards = document.querySelectorAll('#roster-grid .agent-card');
+        if (cards[pos]) selectAgent(parseInt(cards[pos].dataset.id));
+        return;
+      }
+      // Escape while agent is working = stop operation (works from anywhere)
+      if (e.key === 'Escape' && selectedAgent && agentState[selectedAgent].status === 'working') {
+        e.preventDefault();
+        stopAgentOp();
+        return;
+      }
+      if (e.target.id !== 'command-input' && e.target.id !== 'term-search') {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          document.getElementById('command-input').focus();
+          return;
+        }
+        if (e.key >= '1' && e.key <= '4') {
+          const pos = parseInt(e.key) - 1;
+          const cards = document.querySelectorAll('#roster-grid .agent-card');
+          if (cards[pos]) selectAgent(parseInt(cards[pos].dataset.id));
+        }
+        if (e.key === 'Escape') {
+          selectedAgent = null;
+          document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+          document.getElementById('no-agent-selected').style.display = 'flex';
+          document.getElementById('terminal-header').style.display = 'none';
+          document.getElementById('terminal-output').style.display = 'none';
+          document.getElementById('status-bar').style.display = 'none';
+          // Command bar label handled by MASTER > prompt
+          document.getElementById('command-input').placeholder = 'Select an agent...';
+          if (window.gameEvents) window.gameEvents.emit('agentSelected', null);
+        }
+      }
+    });
+
+    // ===== WORKING FIRE INDICATOR =====
+    const fireChars = ['░','▒','▓','█','▓','▒'];
+    const fireColors = ['#4a1a08','#6a2010','#8a3018','#cc4020','#ee6030','#ffaa40','#ffcc60','#ffaa40','#ee6030','#cc4020'];
+
+    function buildFireLine(width, frame, row) {
+      let html = '';
+      for (let i = 0; i < width; i++) {
+        const idx = (i + frame + row * 3) % fireChars.length;
+        const cidx = (i * 3 + frame * 2 + row * 7) % fireColors.length;
+        // Flame height varies — top rows are more sparse
+        const intensity = Math.sin((i + frame * 0.7) * 0.4 + row * 1.5);
+        if (row < 2 && intensity < 0.2) {
+          html += ' ';
+        } else {
+          html += `<span style="color:${fireColors[cidx]}">${fireChars[idx]}</span>`;
+        }
+      }
+      return html;
+    }
+
+    function showFireIndicator(agentId) {
+      removeFireIndicator(agentId);
+      const state = agentState[agentId];
+      state._fireStartTime = Date.now();
+
+      const el = document.createElement('div');
+      el.className = 'term-fire-indicator';
+      el.id = `fire-indicator-${agentId}`;
+
+      // 4 rows of fire + timer
+      for (let r = 0; r < 4; r++) {
+        const line = document.createElement('span');
+        line.className = 'fire-line';
+        line.dataset.row = r;
+        el.appendChild(line);
+      }
+      const timer = document.createElement('span');
+      timer.className = 'fire-timer';
+      timer.textContent = '▸ working 0s';
+      el.appendChild(timer);
+
+      // Only show if this agent is selected
+      if (selectedAgent === agentId) {
+        const out = document.getElementById('terminal-output');
+        const nearBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 80;
+        out.appendChild(el);
+        if (nearBottom) el.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      // Animate
+      let frame = 0;
+      state._fireInterval = setInterval(() => {
+        const width = 30;
+        const lines = el.querySelectorAll('.fire-line');
+        lines.forEach((line, r) => {
+          line.innerHTML = buildFireLine(width, frame, r);
+        });
+        const elapsed = Math.floor((Date.now() - state._fireStartTime) / 1000);
+        timer.textContent = `▸ working ${elapsed}s`;
+        frame++;
+      }, 150);
+    }
+
+    function removeFireIndicator(agentId) {
+      const state = agentState[agentId];
+      if (state._fireInterval) {
+        clearInterval(state._fireInterval);
+        state._fireInterval = null;
+      }
+      const el = document.getElementById(`fire-indicator-${agentId}`);
+      if (el) el.remove();
+    }
+
+    // ===== TIMERS =====
+    function formatDuration(ms) {
+      if (!ms || ms < 0) return '—';
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function tickTimers() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      const uptimeEl = document.getElementById('sb-uptime');
+      const idleEl = document.getElementById('sb-idle');
+      const idleItem = document.getElementById('sb-idle-item');
+
+      if (state.awakeAt) {
+        uptimeEl.textContent = formatDuration(Date.now() - state.awakeAt);
+      } else {
+        uptimeEl.textContent = '—';
+      }
+
+      if (state.status === 'sleeping') {
+        idleItem.style.display = 'none';
+      } else if (state.status === 'working') {
+        idleItem.style.display = 'flex';
+        idleEl.textContent = '0s';
+        idleEl.style.color = '#60cc60';
+      } else if (state.idleSince) {
+        idleItem.style.display = 'flex';
+        const idleMs = Date.now() - state.idleSince;
+        idleEl.textContent = formatDuration(idleMs);
+        // Color escalation: green → yellow → red as idle time grows
+        if (idleMs < 30000) idleEl.style.color = '#60cc60';
+        else if (idleMs < 60000) idleEl.style.color = '#ccaa30';
+        else if (idleMs < 90000) idleEl.style.color = '#cc6030';
+        else idleEl.style.color = '#cc3020';
+      } else {
+        idleItem.style.display = 'flex';
+        idleEl.textContent = '0s';
+        idleEl.style.color = '#60cc60';
+      }
+    }
+
+    setInterval(tickTimers, 1000);
+
+    // ===== SYSTEM STATS =====
+    function tickStats() {
+      fetch('/system-stats').then(r => r.json()).then(data => {
+        const cpuEl = document.getElementById('sb-cpu');
+        const ramEl = document.getElementById('sb-ram');
+        if (cpuEl) {
+          cpuEl.textContent = data.cpu + '%';
+          cpuEl.style.color = data.cpu < 50 ? '#60cc60' : data.cpu < 80 ? '#ccaa30' : '#cc3020';
+        }
+        if (ramEl) {
+          ramEl.textContent = `${data.ram}% (${data.ramUsed}/${data.ramTotal}GB)`;
+          ramEl.style.color = data.ram < 60 ? '#60cc60' : data.ram < 85 ? '#ccaa30' : '#cc3020';
+        }
+        if (window.gameEvents) window.gameEvents.emit('systemStats', { cpu: data.cpu, ram: data.ram });
+      }).catch(() => {});
+    }
+    tickStats();
+    setInterval(tickStats, 3000);
+
+    // ===== GIT STATUS =====
+    let _lastGitCwd = null;
+    function tickGitStatus() {
+      if (!selectedAgent) return;
+      const cwd = agentState[selectedAgent].cwd;
+      if (!cwd) {
+        document.getElementById('sb-git-item').style.display = 'none';
+        _lastGitCwd = null;
+        return;
+      }
+      fetch('/git-status?cwd=' + encodeURIComponent(cwd)).then(r => r.json()).then(data => {
+        const gitItem = document.getElementById('sb-git-item');
+        const branchEl = document.getElementById('sb-git-branch');
+        const statusEl = document.getElementById('sb-git-status');
+        if (!data.git) {
+          gitItem.style.display = 'none';
+          return;
+        }
+        gitItem.style.display = 'flex';
+
+        // Branch name — green if clean, orange if dirty
+        branchEl.textContent = '⎇ ' + data.branch;
+        branchEl.style.color = data.dirty > 0 ? '#cc8030' : '#60cc60';
+        branchEl.title = data.lastCommit ? `Last commit: ${data.lastCommit}` : '';
+
+        // Status parts
+        const parts = [];
+        if (data.dirty > 0) parts.push(`${data.dirty} unsaved`);
+        if (data.ahead > 0) parts.push(`${data.ahead} not pushed`);
+        if (data.behind > 0) parts.push(`${data.behind} behind`);
+        if (parts.length === 0) parts.push('all saved');
+
+        statusEl.textContent = '• ' + parts.join(' • ');
+        statusEl.style.color = data.dirty > 0 ? '#cc8030' : data.ahead > 0 ? '#ccaa30' : '#60cc60';
+
+        // Tooltip explaining the whole git section
+        const tipLines = [`Branch: ${data.branch}`];
+        if (data.dirty > 0) tipLines.push(`${data.dirty} files modified but not committed (unsaved in git)`);
+        if (data.ahead > 0) tipLines.push(`${data.ahead} commits ready to push to remote`);
+        if (data.behind > 0) tipLines.push(`${data.behind} commits behind remote — pull recommended`);
+        if (data.dirty === 0 && data.ahead === 0 && data.behind === 0) tipLines.push('Everything is committed and in sync');
+        if (data.lastCommit) tipLines.push(`Last commit: ${data.lastCommit}`);
+        gitItem.title = tipLines.join('\n');
+      }).catch(() => {
+        document.getElementById('sb-git-item').style.display = 'none';
+      });
+    }
+    tickGitStatus();
+    setInterval(tickGitStatus, 5000);
+
+    // ===== TERMINAL SEARCH =====
+    let _searchMatches = [];
+    let _searchIdx = -1;
+    const _searchPerAgent = {}; // per-agent search query
+
+    document.getElementById('term-search').addEventListener('input', (e) => {
+      if (selectedAgent) _searchPerAgent[selectedAgent] = e.target.value;
+      termSearchExec(e.target.value);
+    });
+    document.getElementById('term-search').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); termSearchNav(e.shiftKey ? -1 : 1); }
+      if (e.key === 'Escape') {
+        e.target.value = '';
+        if (selectedAgent) _searchPerAgent[selectedAgent] = '';
+        termSearchClear();
+        e.target.blur();
+      }
+    });
+
+    function termSearchExec(query) {
+      termSearchClear();
+      if (!query || query.length < 2) {
+        document.getElementById('term-search-count').textContent = '';
+        return;
+      }
+
+      const out = document.getElementById('terminal-output');
+      const lines = out.querySelectorAll('.term-line');
+      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+      lines.forEach(line => {
+        // Walk text nodes and wrap matches
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        textNodes.forEach(node => {
+          if (node.parentElement.classList.contains('resp-copy-btn')) return;
+          if (node.parentElement.classList.contains('code-copy-btn')) return;
+          const text = node.textContent;
+          if (!regex.test(text)) return;
+          regex.lastIndex = 0;
+          const frag = document.createDocumentFragment();
+          let lastIdx = 0;
+          let match;
+          while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIdx) {
+              frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+            }
+            const mark = document.createElement('span');
+            mark.className = 'search-highlight';
+            mark.textContent = match[1];
+            frag.appendChild(mark);
+            lastIdx = regex.lastIndex;
+          }
+          if (lastIdx < text.length) {
+            frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+          }
+          node.parentNode.replaceChild(frag, node);
+        });
+      });
+
+      _searchMatches = [...out.querySelectorAll('.search-highlight')];
+      _searchIdx = -1;
+      document.getElementById('term-search-count').textContent = _searchMatches.length > 0 ? `0/${_searchMatches.length}` : 'no results';
+
+      if (_searchMatches.length > 0) termSearchNav(1);
+    }
+
+    function termSearchNav(dir) {
+      if (_searchMatches.length === 0) return;
+      if (_searchIdx >= 0) _searchMatches[_searchIdx].classList.remove('active');
+      _searchIdx = (_searchIdx + dir + _searchMatches.length) % _searchMatches.length;
+      _searchMatches[_searchIdx].classList.add('active');
+      _searchMatches[_searchIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('term-search-count').textContent = `${_searchIdx + 1}/${_searchMatches.length}`;
+    }
+
+    function termSearchClear() {
+      const out = document.getElementById('terminal-output');
+      out.querySelectorAll('.search-highlight').forEach(mark => {
+        const parent = mark.parentNode;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      });
+      _searchMatches = [];
+      _searchIdx = -1;
+      document.getElementById('term-search-count').textContent = '';
+    }
+
+    // ===== AGENT CARD DRAG & DROP =====
+    (function initCardDrag() {
+      const grid = document.getElementById('roster-grid');
+      let draggedCard = null;
+
+      // Restore saved order from localStorage
+      const saved = localStorage.getItem('agentCardOrder');
+      if (saved) {
+        try {
+          const order = JSON.parse(saved); // e.g. [3,1,4,2]
+          const cards = {};
+          grid.querySelectorAll('.agent-card').forEach(c => cards[c.dataset.id] = c);
+          order.forEach(id => { if (cards[id]) grid.appendChild(cards[id]); });
+        } catch(e) {}
+      }
+
+      grid.addEventListener('dragstart', (e) => {
+        const card = e.target.closest('.agent-card');
+        if (!card) return;
+        draggedCard = card;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+
+      grid.addEventListener('dragend', (e) => {
+        const card = e.target.closest('.agent-card');
+        if (card) card.classList.remove('dragging');
+        grid.querySelectorAll('.agent-card').forEach(c => c.classList.remove('drag-over'));
+        draggedCard = null;
+      });
+
+      grid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const target = e.target.closest('.agent-card');
+        grid.querySelectorAll('.agent-card').forEach(c => c.classList.remove('drag-over'));
+        if (target && target !== draggedCard) target.classList.add('drag-over');
+      });
+
+      grid.addEventListener('dragleave', (e) => {
+        const target = e.target.closest('.agent-card');
+        if (target) target.classList.remove('drag-over');
+      });
+
+      grid.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('.agent-card');
+        if (!target || !draggedCard || target === draggedCard) return;
+        // Determine insert position based on visual order
+        const cards = [...grid.querySelectorAll('.agent-card')];
+        const dragIdx = cards.indexOf(draggedCard);
+        const dropIdx = cards.indexOf(target);
+        if (dragIdx < dropIdx) {
+          grid.insertBefore(draggedCard, target.nextSibling);
+        } else {
+          grid.insertBefore(draggedCard, target);
+        }
+        target.classList.remove('drag-over');
+        // Save order to localStorage
+        const newOrder = [...grid.querySelectorAll('.agent-card')].map(c => c.dataset.id);
+        localStorage.setItem('agentCardOrder', JSON.stringify(newOrder));
+      });
+    })();
+
+    // ===== VIEW MODE TOGGLE =====
+    (function initViewMode() {
+      const saved = localStorage.getItem('viewMode');
+      const basementBtn = document.getElementById('mode-basement');
+      const terminalBtn = document.getElementById('mode-terminal');
+
+      function setMode(mode) {
+        localStorage.setItem('viewMode', mode);
+        if (mode === 'terminal') {
+          document.body.classList.add('terminal-mode');
+          basementBtn.classList.remove('active');
+          basementBtn.classList.add('inactive');
+          terminalBtn.classList.remove('inactive');
+          terminalBtn.classList.add('active');
+          if (window.game) window.game.loop.sleep();
+        } else {
+          document.body.classList.remove('terminal-mode');
+          terminalBtn.classList.remove('active');
+          terminalBtn.classList.add('inactive');
+          basementBtn.classList.remove('inactive');
+          basementBtn.classList.add('active');
+          if (window.game) {
+            window.game.loop.wake();
+            // Sync all agent statuses with game visuals
+            for (let i = 1; i <= 4; i++) {
+              if (window.gameEvents && agentState[i]) {
+                window.gameEvents.emit('agentStatus', { id: i, status: agentState[i].status });
+              }
+            }
+            // Sync selected agent highlight
+            if (selectedAgent && window.gameEvents) {
+              window.gameEvents.emit('agentSelected', selectedAgent);
+            }
+            // Refresh system stats (CPU/RAM blood text)
+            tickStats();
+            setTimeout(() => window.game.scale.refresh(), 50);
+          }
+        }
+      }
+
+      basementBtn.addEventListener('click', () => setMode('basement'));
+      terminalBtn.addEventListener('click', () => setMode('terminal'));
+
+      // Apply saved mode on load (game paused after scene creates)
+      if (saved === 'terminal') {
+        document.body.classList.add('terminal-mode');
+        basementBtn.classList.remove('active');
+        basementBtn.classList.add('inactive');
+        terminalBtn.classList.remove('inactive');
+        terminalBtn.classList.add('active');
+        // Pause game once scene is ready
+        const waitForGame = setInterval(() => {
+          if (window.game && window.game.scene.scenes[0] && window.game.scene.scenes[0].scene.isActive()) {
+            window.game.loop.sleep();
+            clearInterval(waitForGame);
+          }
+        }, 100);
+      }
+    })();
+
+    // ===== BOOT =====
+    connectWS();
+  </script>
+
+  <script src="game/main.js"></script>
+</body>
+</html>

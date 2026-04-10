@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark basement background -->
+  <rect width="32" height="32" rx="4" fill="#0e0a06"/>
+  <rect x="1" y="1" width="30" height="30" rx="3" fill="none" stroke="#2a1810" stroke-width="1"/>
+
+  <!-- Dungeon arch / doorway -->
+  <path d="M8 28 L8 14 Q8 6 16 6 Q24 6 24 14 L24 28" fill="none" stroke="#4a3a28" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M9 28 L9 14.5 Q9 7.5 16 7.5 Q23 7.5 23 14.5 L23 28" fill="#1a1208" stroke="none"/>
+
+  <!-- Stone texture lines on arch -->
+  <line x1="8" y1="18" x2="24" y2="18" stroke="#3a2a1a" stroke-width="0.5"/>
+  <line x1="8" y1="22" x2="24" y2="22" stroke="#3a2a1a" stroke-width="0.5"/>
+
+  <!-- Flame in doorway -->
+  <path d="M16 24 Q14 20 15 17 Q14 15 16 11 Q18 15 17 17 Q18 20 16 24" fill="#cc6020" opacity="0.9"/>
+  <path d="M16 24 Q14.5 21 15.5 18 Q15 16.5 16 13 Q17 16.5 16.5 18 Q17.5 21 16 24" fill="#ffaa40" opacity="0.8"/>
+  <path d="M16 24 Q15.2 22 15.8 19.5 Q16 18 16 15.5 Q16 18 16.2 19.5 Q16.8 22 16 24" fill="#ffdd88" opacity="0.7"/>
+
+  <!-- Glow around flame -->
+  <circle cx="16" cy="18" r="6" fill="#ff6620" opacity="0.1"/>
+  <circle cx="16" cy="18" r="4" fill="#ffaa40" opacity="0.08"/>
+
+  <!-- Chain links hanging from top -->
+  <ellipse cx="11" cy="4" rx="1.5" ry="2" fill="none" stroke="#6a5a4a" stroke-width="1"/>
+  <ellipse cx="21" cy="4" rx="1.5" ry="2" fill="none" stroke="#6a5a4a" stroke-width="1"/>
+  <ellipse cx="11" cy="7" rx="1" ry="1.8" fill="none" stroke="#5a4a3a" stroke-width="0.8"/>
+  <ellipse cx="21" cy="7" rx="1" ry="1.8" fill="none" stroke="#5a4a3a" stroke-width="0.8"/>
+</svg>
