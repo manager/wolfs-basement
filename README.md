@@ -8,6 +8,8 @@ Four pixel-art dungeon agents — each running an independent Claude CLI session
 ![Express](https://img.shields.io/badge/express-4-333?logo=express)
 ![Phaser](https://img.shields.io/badge/phaser-3.60-333)
 
+> **Windows only.** Built and tested on Windows 11. Uses `taskkill`, PowerShell folder picker, and Windows-specific process management. Not tested on macOS or Linux.
+
 ## Quick Start
 
 ```bash
