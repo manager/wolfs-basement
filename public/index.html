@@ -2219,7 +2219,7 @@
       if (state.status === 'sleeping') {
         ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
       }
-      const prompt = 'Push all committed changes to the remote repository using git push. If there is nothing to push, just say so briefly.';
+      const prompt = 'Save and push my work. Steps: 1) Run git status and git diff to see all changes. 2) If there are uncommitted changes, stage them all with git add, write a clear meaningful commit message summarizing what changed and why, and commit. 3) Push to the remote with git push. 4) If git identity is not configured, use "manager" as name and "manager@users.noreply.github.com" as email (repo-level only, not global). 5) Report what you did briefly. If there is nothing to commit or push, just say so.';
       ws.send(JSON.stringify({ type: 'command', id: selectedAgent, text: prompt, model: state.model, mode: state.mode, label: '> /push' }));
       appendToTerminal(selectedAgent, '> /push', 'term-cmd');
     }
