@@ -19,7 +19,7 @@ No build step. No tests. Single `node server.js` serves everything.
 
 ### Three Layers
 
-1. **Server** (`server.js`, ~520 lines) — Express + WebSocket + agent process manager. Spawns `claude -p --verbose --output-format stream-json --input-format stream-json` per agent. Parses NDJSON stdout, broadcasts to clients. REST endpoints: `/system-stats` (CPU/RAM), `/pick-folder` (Windows native dialog), `/git-status` (branch/dirty/ahead/behind).
+1. **Server** (`server.js`, ~770 lines) — Express + WebSocket + agent process manager + dev server manager. Spawns `claude -p --verbose --output-format stream-json --input-format stream-json` per agent. Parses NDJSON stdout, broadcasts to clients. REST endpoints: `/system-stats` (CPU/RAM), `/pick-folder` (Windows native dialog), `/git-status` (branch/dirty/ahead/behind), `/auth-status` (Claude CLI auth info, 30s cache), `/dev-server-status` (per-CWD dev server state).
 
 2. **Client** (`public/index.html`, ~2300 lines) — Single HTML file with all CSS + JS inline. WebSocket client, full markdown terminal renderer, fire/burn/starburst animations, image paste (Ctrl+V), drag-drop attachments, in-terminal search, context window monitoring, git status display. State stored in `agentState[1-4]`.
 
@@ -81,6 +81,22 @@ Client sends WebSocket JSON → Server handles in switch (`summon`, `command`, `
 - Client polls every 5s, also refreshes on agent switch / CWD change
 - Shows: branch name (green=clean, orange=dirty), status ("N unsaved", "N not pushed", "N behind", "all saved")
 - Hover tooltip with last commit message + detailed breakdown
+
+### Dev Server Manager
+
+- Server-side: `devServers` Map keyed by normalized CWD path. WebSocket message `dev_server` with actions: `start`, `stop`, `restart`, `status`.
+- `startDevServer(cwd)`: spawns `npm run dev`, parses stdout/stderr for port (regex: `localhost:PORT`, `port PORT`), broadcasts status. 10s fallback marks as 'on' if no port detected.
+- `stopDevServer(cwd)`: kills process via `taskkill /t /f` (Windows) or SIGTERM.
+- `restartDevServer(cwd)`: waits for old process close, then starts new one.
+- Client: status bar indicator with colored dot (green=on, orange=starting, red=off), clickable SERVER label with dropdown menu (Start/Restart/Shut Down), port link opens in new tab.
+- Status polled on agent switch and CWD change via `/dev-server-status` REST endpoint.
+
+### Auth Status Indicator
+
+- Top-right "ACTIVE" indicator is clickable, shows auth popup with read-only info from `claude auth status`.
+- Dot color: green when authenticated, red when not. Label: "AUTHED" (OAuth), "API KEY", or "NO AUTH".
+- Popup shows: status, auth method, account email, org, plan, provider.
+- Server caches auth check for 30s. Falls back to `ANTHROPIC_API_KEY` env var check if CLI fails.
 
 ### Keyboard Shortcuts
 

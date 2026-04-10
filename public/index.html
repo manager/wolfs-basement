@@ -95,7 +95,11 @@
       font-size: 11px;
       color: #6a3020;
       letter-spacing: 3px;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
     }
+    #dispatch-status:hover { color: #9a4030; }
 
     #dispatch-status .dot {
       display: inline-block;
@@ -107,6 +111,35 @@
       box-shadow: 0 0 8px #cc3020;
       animation: doomPulse 1.5s infinite;
     }
+    #dispatch-status .dot.authed { background: #50cc50; box-shadow: 0 0 8px #50cc50; }
+    #dispatch-status .dot.noauth { background: #cc3020; box-shadow: 0 0 8px #cc3020; }
+
+    #auth-popup {
+      display: none;
+      position: fixed;
+      background: #140a06;
+      border: 1px solid #3a2010;
+      border-radius: 6px;
+      padding: 12px 16px;
+      z-index: 9999;
+      min-width: 240px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0;
+    }
+    #auth-popup.open { display: block; }
+    #auth-popup .auth-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+      border-bottom: 1px solid #1a0e08;
+    }
+    #auth-popup .auth-row:last-child { border-bottom: none; }
+    #auth-popup .auth-label { color: #6a5030; }
+    #auth-popup .auth-value { color: #d0a060; text-align: right; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #auth-popup .auth-value.good { color: #50cc50; }
+    #auth-popup .auth-value.bad { color: #cc4040; }
 
     @keyframes doomPulse {
       0%, 100% { opacity: 1; }
@@ -616,6 +649,23 @@
       color: #8a7a60;
     }
 
+    /* --- SERVER INDICATOR --- */
+    .sb-server-item { position: relative; display: flex; align-items: center; gap: 6px; }
+    .sb-server-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .sb-server-dot.on { background: #50cc50; box-shadow: 0 0 4px rgba(80,204,80,0.5); }
+    .sb-server-dot.starting, .sb-server-dot.restarting { background: #cc8030; box-shadow: 0 0 4px rgba(204,128,48,0.5); animation: pulse-dot 1s ease-in-out infinite; }
+    .sb-server-dot.off { background: #cc4040; box-shadow: 0 0 4px rgba(204,64,64,0.3); }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .sb-server-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7a60; cursor: pointer; user-select: none; }
+    .sb-server-label:hover { color: #d0a060; }
+    .sb-server-url { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6aafcc; cursor: pointer; text-decoration: none; }
+    .sb-server-url:hover { color: #8accea; text-decoration: underline; }
+    .sb-server-menu { display: none; position: absolute; bottom: 100%; left: 0; background: #140a06; border: 1px solid #3a2010; border-radius: 4px; padding: 2px 0; z-index: 100; min-width: 100px; box-shadow: 0 -2px 8px rgba(0,0,0,0.5); }
+    .sb-server-menu.open { display: block; }
+    .sb-server-menu-item { padding: 4px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #d0a060; cursor: pointer; white-space: nowrap; }
+    .sb-server-menu-item:hover { background: #2a1808; color: #ffcc60; }
+    .sb-server-menu-item.disabled { color: #4a3a20; pointer-events: none; }
+
     .sb-context-pct {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 11px;
@@ -717,7 +767,10 @@
       <!-- HEADER -->
       <div id="dispatch-header">
         <div id="dispatch-title">WOLF'S <span id="mode-basement" style="margin-left:6px;" class="mode-btn active">BASEMENT</span><span class="title-sep"> | </span><span id="mode-terminal" class="mode-btn inactive">TERMINAL</span></div>
-        <div id="dispatch-status"><span class="dot"></span>ACTIVE</div>
+        <div id="dispatch-status" onclick="toggleAuthPopup(event)">
+          <span class="dot" id="auth-dot"></span><span id="auth-status-text">ACTIVE</span>
+        </div>
+        <div id="auth-popup"></div>
       </div>
 
       <!-- ROSTER -->
@@ -791,9 +844,9 @@
             <div class="sb-item">
               <span class="sb-label">Mode</span>
               <select class="sb-select" id="sb-mode-select" onchange="setAgentMode(this.value)">
-                <option value="normal">Normal</option>
-                <option value="plan" selected>Plan</option>
-                <option value="bypass">Bypass</option>
+                <option value="normal" style="color:#d0a060">Normal</option>
+                <option value="plan" selected style="color:#5a9acf">Plan</option>
+                <option value="bypass" style="color:#cf4a4a">Bypass</option>
               </select>
             </div>
             <div class="sb-item sb-context-item" id="sb-context-item">
@@ -834,6 +887,16 @@
             <div class="sb-item" style="min-width:0">
               <span class="sb-label">Project Folder</span>
               <span class="sb-cwd" id="sb-cwd" title="" onclick="editCwd()">—</span>
+            </div>
+            <div class="sb-item sb-server-item" id="sb-server-item" style="display:none">
+              <span class="sb-server-dot off" id="sb-server-dot"></span>
+              <span class="sb-server-label" id="sb-server-label" onclick="toggleServerMenu(event)">SERVER</span>
+              <a class="sb-server-url" id="sb-server-url" target="_blank" rel="noopener" style="display:none"></a>
+              <div class="sb-server-menu" id="sb-server-menu">
+                <div class="sb-server-menu-item" onclick="devServerAction('start')">Start</div>
+                <div class="sb-server-menu-item" onclick="devServerAction('restart')">Restart</div>
+                <div class="sb-server-menu-item" onclick="devServerAction('stop')">Shut Down</div>
+              </div>
             </div>
             <div class="sb-item sb-git-item" id="sb-git-item" style="display:none">
               <span class="sb-git-branch" id="sb-git-branch"></span>
@@ -1024,6 +1087,13 @@
           if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'sleeping' });
           if (selectedAgent === msg.id) updateTerminalHeader();
           break;
+
+        case 'dev_server_status': {
+          const key = msg.cwd.replace(/\\/g, '/').toLowerCase();
+          _devServerState[key] = { status: msg.status, port: msg.port };
+          updateServerIndicator();
+          break;
+        }
       }
     }
 
@@ -1408,7 +1478,11 @@
       if (!selectedAgent) return;
       const state = agentState[selectedAgent];
       document.getElementById('sb-model-select').value = state.model;
-      document.getElementById('sb-mode-select').value = state.mode;
+      const modeSelect = document.getElementById('sb-mode-select');
+      modeSelect.value = state.mode;
+      const modeColors = { normal: '#d0a060', plan: '#5a9acf', bypass: '#cf4a4a' };
+      modeSelect.style.color = modeColors[state.mode] || '#d0a060';
+      modeSelect.style.borderColor = (modeColors[state.mode] || '#d0a060') + '66';
       const cwdEl = document.getElementById('sb-cwd');
       if (state.cwd) {
         cwdEl.textContent = state.cwd;
@@ -1421,6 +1495,7 @@
       }
       updateContextBar();
       if (typeof tickGitStatus === 'function') tickGitStatus();
+      if (typeof fetchDevServerStatus === 'function') fetchDevServerStatus();
     }
 
     function updateContextBar() {
@@ -2009,6 +2084,7 @@
       const labels = { normal: 'Normal', plan: 'Plan Mode', bypass: 'Bypass Permissions' };
       appendToTerminal(selectedAgent, `[Mode set to ${labels[mode]}]`, 'term-system');
       saveAgentSettings();
+      updateStatusBar();
     }
 
     // ===== PASTE / ATTACHMENTS =====
@@ -2136,7 +2212,7 @@
         stopAgentOp();
         return;
       }
-      if (e.target.id !== 'command-input' && e.target.id !== 'term-search') {
+      if (e.target.id !== 'command-input' && e.target.id !== 'term-search' && e.target.tagName !== 'SELECT') {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           document.getElementById('command-input').focus();
@@ -2351,6 +2427,143 @@
     }
     tickGitStatus();
     setInterval(tickGitStatus, 5000);
+
+    // ===== AUTH STATUS INDICATOR =====
+    let _authData = null;
+
+    function fetchAuthStatus() {
+      fetch('/auth-status').then(r => r.json()).then(data => {
+        _authData = data;
+        const dot = document.getElementById('auth-dot');
+        const text = document.getElementById('auth-status-text');
+        if (data.loggedIn) {
+          dot.className = 'dot authed';
+          if (data.authMethod === 'api_key') {
+            text.textContent = 'API KEY';
+          } else {
+            text.textContent = 'AUTHED';
+          }
+        } else {
+          dot.className = 'dot noauth';
+          text.textContent = 'NO AUTH';
+        }
+        renderAuthPopup();
+      }).catch(() => {});
+    }
+
+    function renderAuthPopup() {
+      const popup = document.getElementById('auth-popup');
+      if (!_authData) { popup.innerHTML = '<div class="auth-row"><span class="auth-label">Loading...</span></div>'; return; }
+      const d = _authData;
+      let rows = '';
+      rows += authRow('Status', d.loggedIn ? 'Authenticated' : 'Not authenticated', d.loggedIn ? 'good' : 'bad');
+      rows += authRow('Method', formatAuthMethod(d.authMethod));
+      if (d.email) rows += authRow('Account', d.email);
+      if (d.orgName && d.orgName !== d.email) rows += authRow('Org', d.orgName);
+      if (d.subscriptionType) rows += authRow('Plan', d.subscriptionType.charAt(0).toUpperCase() + d.subscriptionType.slice(1));
+      if (d.apiKey) rows += authRow('API Key', d.apiKey);
+      if (d.apiProvider) rows += authRow('Provider', d.apiProvider === 'firstParty' ? 'Anthropic' : d.apiProvider);
+      popup.innerHTML = rows;
+    }
+
+    function authRow(label, value, cls) {
+      return `<div class="auth-row"><span class="auth-label">${label}</span><span class="auth-value${cls ? ' ' + cls : ''}" title="${value}">${value}</span></div>`;
+    }
+
+    function formatAuthMethod(m) {
+      if (m === 'claude.ai') return 'Claude.ai (OAuth)';
+      if (m === 'api_key') return 'API Key';
+      if (m === 'none') return 'None';
+      return m || 'Unknown';
+    }
+
+    function toggleAuthPopup(e) {
+      e.stopPropagation();
+      const popup = document.getElementById('auth-popup');
+      popup.classList.toggle('open');
+      if (popup.classList.contains('open')) {
+        fetchAuthStatus();
+        // Position below the dispatch-status element
+        const anchor = document.getElementById('dispatch-status');
+        const rect = anchor.getBoundingClientRect();
+        popup.style.top = (rect.bottom + 6) + 'px';
+        popup.style.right = (window.innerWidth - rect.right) + 'px';
+        setTimeout(() => document.addEventListener('click', closeAuthPopup, { once: true }), 0);
+      }
+    }
+
+    function closeAuthPopup() {
+      document.getElementById('auth-popup').classList.remove('open');
+    }
+
+    // Initial fetch
+    fetchAuthStatus();
+
+    // ===== DEV SERVER INDICATOR =====
+    let _devServerState = {}; // cwd -> { status, port }
+
+    function updateServerIndicator() {
+      if (!selectedAgent) return;
+      const cwd = agentState[selectedAgent].cwd;
+      const item = document.getElementById('sb-server-item');
+      if (!cwd) { item.style.display = 'none'; return; }
+      item.style.display = 'flex';
+      const key = cwd.replace(/\\/g, '/').toLowerCase();
+      const ds = _devServerState[key] || { status: 'off', port: null };
+      const dot = document.getElementById('sb-server-dot');
+      dot.className = 'sb-server-dot ' + (ds.status === 'on' ? 'on' : ds.status === 'off' ? 'off' : 'starting');
+      const url = document.getElementById('sb-server-url');
+      if (ds.status === 'on' && ds.port) {
+        url.style.display = '';
+        url.href = 'http://localhost:' + ds.port;
+        url.textContent = ':' + ds.port;
+        url.title = 'Open http://localhost:' + ds.port + ' in new tab';
+      } else {
+        url.style.display = 'none';
+      }
+      // Update menu item states
+      const menu = document.getElementById('sb-server-menu');
+      const items = menu.querySelectorAll('.sb-server-menu-item');
+      items[0].classList.toggle('disabled', ds.status === 'on' || ds.status === 'starting'); // Start
+      items[1].classList.toggle('disabled', ds.status === 'off'); // Restart
+      items[2].classList.toggle('disabled', ds.status === 'off'); // Shut Down
+    }
+
+    function toggleServerMenu(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('sb-server-menu');
+      menu.classList.toggle('open');
+      if (menu.classList.contains('open')) {
+        setTimeout(() => document.addEventListener('click', closeServerMenu, { once: true }), 0);
+      }
+    }
+
+    function closeServerMenu() {
+      document.getElementById('sb-server-menu').classList.remove('open');
+    }
+
+    function devServerAction(action) {
+      if (!selectedAgent) return;
+      const cwd = agentState[selectedAgent].cwd;
+      if (!cwd) return;
+      closeServerMenu();
+      ws.send(JSON.stringify({ type: 'dev_server', action, cwd }));
+    }
+
+    // Listen for dev server status broadcasts
+    // (handled in existing ws.onmessage — we'll add the case there)
+
+    // Poll dev server status on agent switch / CWD change
+    function fetchDevServerStatus() {
+      if (!selectedAgent) return;
+      const cwd = agentState[selectedAgent].cwd;
+      if (!cwd) { updateServerIndicator(); return; }
+      fetch('/dev-server-status?cwd=' + encodeURIComponent(cwd)).then(r => r.json()).then(data => {
+        const key = cwd.replace(/\\/g, '/').toLowerCase();
+        _devServerState[key] = { status: data.status, port: data.port };
+        updateServerIndicator();
+      }).catch(() => { updateServerIndicator(); });
+    }
 
     // ===== TERMINAL SEARCH =====
     let _searchMatches = [];

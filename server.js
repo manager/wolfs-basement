@@ -120,6 +120,42 @@ $dlg.Dispose()`;
   proc.on('error', (err) => { console.error('[pick-folder] spawn error:', err); res.json({ folder: null }); });
 });
 
+// --- Auth Status ---
+let _authCache = null;
+let _authCacheTime = 0;
+
+app.get('/auth-status', (req, res) => {
+  // Cache for 30s to avoid spamming CLI
+  if (_authCache && Date.now() - _authCacheTime < 30000) {
+    return res.json(_authCache);
+  }
+  const proc = spawn('claude', ['auth', 'status'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  let out = '';
+  proc.stdout.on('data', d => out += d.toString());
+  proc.on('close', (code) => {
+    if (code === 0) {
+      try {
+        _authCache = JSON.parse(out.trim());
+        _authCacheTime = Date.now();
+        return res.json(_authCache);
+      } catch (e) {}
+    }
+    // Fallback: check env var
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const fallback = {
+      loggedIn: !!apiKey,
+      authMethod: apiKey ? 'api_key' : 'none',
+      apiKey: apiKey ? apiKey.slice(0, 10) + '...' + apiKey.slice(-4) : null,
+    };
+    _authCache = fallback;
+    _authCacheTime = Date.now();
+    res.json(fallback);
+  });
+  proc.on('error', () => {
+    res.json({ loggedIn: false, authMethod: 'none' });
+  });
+});
+
 // --- Agent Process Manager ---
 
 const MAX_AGENTS = 4;
@@ -257,9 +293,7 @@ function sendCommand(id, text, model, mode, images, label) {
 
   // Kill existing process if still running
   if (agent.process) {
-    agent._killing = true; // flag so close handler won't corrupt new process state
     try {
-      // On Windows, SIGTERM doesn't work for cmd.exe trees — use taskkill
       if (process.platform === 'win32' && agent.process.pid) {
         spawn('taskkill', ['/pid', String(agent.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
       } else {
@@ -268,6 +302,10 @@ function sendCommand(id, text, model, mode, images, label) {
     } catch (e) {}
     agent.process = null;
   }
+
+  // Bump generation so stale process handlers are ignored
+  agent._generation = (agent._generation || 0) + 1;
+  const gen = agent._generation;
 
   setStatus(id, 'working');
 
@@ -299,7 +337,6 @@ function sendCommand(id, text, model, mode, images, label) {
   proc.stdin.end();
 
   agent.process = proc;
-  agent._killing = false; // reset kill flag for new process
   agent.lastOutputTime = Date.now();
   agent.lineBuf = ''; // buffer for incomplete NDJSON lines
 
@@ -307,6 +344,7 @@ function sendCommand(id, text, model, mode, images, label) {
   // Anything that isn't valid JSON is noise (warnings, shell messages, etc.)
 
   proc.stdout.on('data', (data) => {
+    if (agent._generation !== gen) return; // stale process, ignore
     agent.lastOutputTime = Date.now();
     agent.lineBuf += data.toString();
 
@@ -411,6 +449,7 @@ function sendCommand(id, text, model, mode, images, label) {
   });
 
   proc.stderr.on('data', (data) => {
+    if (agent._generation !== gen) return; // stale process, ignore
     const text = data.toString().trim();
     if (!text) return;
     console.log(`[Agent ${id}] STDERR: ${text}`);
@@ -421,11 +460,8 @@ function sendCommand(id, text, model, mode, images, label) {
 
   proc.on('close', (code) => {
     console.log(`[Agent ${id}] Process exited with code ${code}`);
-    // If this process was killed for a respawn, don't touch the new agent state
-    if (agent._killing) {
-      agent._killing = false;
-      return;
-    }
+    // If a newer process has started, ignore this stale close event
+    if (agent._generation !== gen) return;
     // Flush any remaining delta text into history buffer
     if (agent.currentDelta) {
       const name = AGENT_NAMES[id] || `Agent ${id}`;
@@ -444,6 +480,7 @@ function sendCommand(id, text, model, mode, images, label) {
   });
 
   proc.on('error', (err) => {
+    if (agent._generation !== gen) return;
     agent.process = null;
     broadcast({ type: 'agent_error', id, error: err.message });
     if (agents.has(id)) setStatus(id, 'awake');
@@ -564,6 +601,15 @@ wss.on('connection', (ws) => {
       case 'sleep':
         sleepAgent(msg.id);
         break;
+      case 'dev_server': {
+        const cwd = msg.cwd;
+        if (!cwd) break;
+        if (msg.action === 'start') startDevServer(cwd);
+        else if (msg.action === 'stop') stopDevServer(cwd);
+        else if (msg.action === 'restart') restartDevServer(cwd);
+        else if (msg.action === 'status') broadcastDevServer(cwd);
+        break;
+      }
       default:
         console.log('Unknown message type:', msg.type);
     }
@@ -574,14 +620,141 @@ wss.on('connection', (ws) => {
   });
 });
 
+// --- Dev Server Manager ---
+
+const devServers = new Map(); // cwd -> { process, status, port, cwd }
+
+function devServerKey(cwd) {
+  return cwd.replace(/\\/g, '/').toLowerCase();
+}
+
+function broadcastDevServer(cwd) {
+  const key = devServerKey(cwd);
+  const ds = devServers.get(key);
+  const info = ds ? { status: ds.status, port: ds.port, cwd: ds.cwd } : { status: 'off', port: null, cwd };
+  broadcast({ type: 'dev_server_status', ...info });
+}
+
+function startDevServer(cwd) {
+  const key = devServerKey(cwd);
+  const existing = devServers.get(key);
+  if (existing && existing.status === 'on') return; // already running
+  if (existing && existing.process) {
+    // kill old process first
+    try {
+      if (process.platform === 'win32' && existing.process.pid) {
+        spawn('taskkill', ['/pid', String(existing.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+      } else {
+        existing.process.kill('SIGTERM');
+      }
+    } catch(e) {}
+  }
+
+  const ds = { process: null, status: 'starting', port: null, cwd };
+  devServers.set(key, ds);
+  broadcastDevServer(cwd);
+
+  const proc = spawn('npm', ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  ds.process = proc;
+
+  let outputBuf = '';
+  function parsePort(text) {
+    // Match common patterns: localhost:PORT, 127.0.0.1:PORT, port PORT, :PORT
+    const m = text.match(/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{3,5})/i) || text.match(/port\s+(\d{3,5})/i);
+    if (m) {
+      ds.port = parseInt(m[1]);
+      ds.status = 'on';
+      broadcastDevServer(cwd);
+      console.log(`[DevServer] ${cwd} → port ${ds.port}`);
+    }
+  }
+
+  proc.stdout.on('data', d => { outputBuf += d.toString(); parsePort(outputBuf); });
+  proc.stderr.on('data', d => { outputBuf += d.toString(); parsePort(outputBuf); });
+
+  proc.on('close', (code) => {
+    console.log(`[DevServer] ${cwd} exited (code ${code})`);
+    ds.process = null;
+    ds.status = 'off';
+    ds.port = null;
+    devServers.set(key, ds);
+    broadcastDevServer(cwd);
+  });
+
+  proc.on('error', (err) => {
+    console.error(`[DevServer] ${cwd} error:`, err.message);
+    ds.process = null;
+    ds.status = 'off';
+    devServers.set(key, ds);
+    broadcastDevServer(cwd);
+  });
+
+  // If no port detected in 10s, still mark as 'on' (some servers don't log port)
+  setTimeout(() => {
+    if (ds.status === 'starting') {
+      ds.status = 'on';
+      broadcastDevServer(cwd);
+    }
+  }, 10000);
+}
+
+function stopDevServer(cwd) {
+  const key = devServerKey(cwd);
+  const ds = devServers.get(key);
+  if (!ds || !ds.process) {
+    if (ds) { ds.status = 'off'; ds.port = null; }
+    broadcastDevServer(cwd);
+    return;
+  }
+  try {
+    if (process.platform === 'win32' && ds.process.pid) {
+      spawn('taskkill', ['/pid', String(ds.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+    } else {
+      ds.process.kill('SIGTERM');
+    }
+  } catch(e) {}
+  ds.status = 'off';
+  ds.port = null;
+  broadcastDevServer(cwd);
+}
+
+function restartDevServer(cwd) {
+  const key = devServerKey(cwd);
+  const ds = devServers.get(key);
+  if (ds && ds.process) {
+    ds.status = 'restarting';
+    broadcastDevServer(cwd);
+    const proc = ds.process;
+    proc.on('close', () => { startDevServer(cwd); });
+    try {
+      if (process.platform === 'win32' && proc.pid) {
+        spawn('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+      } else {
+        proc.kill('SIGTERM');
+      }
+    } catch(e) { startDevServer(cwd); }
+  } else {
+    startDevServer(cwd);
+  }
+}
+
+app.get('/dev-server-status', (req, res) => {
+  const cwd = req.query.cwd;
+  if (!cwd) return res.json({ status: 'off', port: null });
+  const key = devServerKey(cwd);
+  const ds = devServers.get(key);
+  if (!ds) return res.json({ status: 'off', port: null, cwd });
+  res.json({ status: ds.status, port: ds.port, cwd: ds.cwd });
+});
+
 // --- Start ---
 
-const PORT = process.env.PORT || 6666;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n  ⛓️  WOLF'S BASEMENT running at http://localhost:${PORT}\n`);
 });
 
-// Graceful shutdown — kill all agent processes on exit
+// Graceful shutdown — kill all agent and dev server processes on exit
 function shutdown() {
   console.log('\n  Shutting down — killing agent processes...');
   for (const [id, agent] of agents) {
@@ -591,6 +764,17 @@ function shutdown() {
           spawn('taskkill', ['/pid', String(agent.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
         } else {
           agent.process.kill('SIGTERM');
+        }
+      } catch (e) {}
+    }
+  }
+  for (const [key, ds] of devServers) {
+    if (ds.process) {
+      try {
+        if (process.platform === 'win32' && ds.process.pid) {
+          spawn('taskkill', ['/pid', String(ds.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+        } else {
+          ds.process.kill('SIGTERM');
         }
       } catch (e) {}
     }

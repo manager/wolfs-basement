@@ -171,6 +171,7 @@ class RoomScene extends Phaser.Scene {
       }
     }
     this.input.keyboard.on('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.key >= '1' && e.key <= '4') selectAgent(parseInt(e.key));
     });
   }
