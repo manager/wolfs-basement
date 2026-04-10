@@ -576,7 +576,7 @@ wss.on('connection', (ws) => {
 
 // --- Start ---
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 6666;
 server.listen(PORT, () => {
   console.log(`\n  ⛓️  WOLF'S BASEMENT running at http://localhost:${PORT}\n`);
 });

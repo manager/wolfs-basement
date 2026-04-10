@@ -13,7 +13,7 @@ Four pixel-art dungeon agents — each running an independent Claude CLI session
 ```bash
 npm install
 npm run dev
-# → http://localhost:3000
+# → http://localhost:6666
 ```
 
 No build step. No framework. One `node server.js` serves everything.
