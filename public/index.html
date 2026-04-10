@@ -15,7 +15,7 @@
     #game-container { width: 60%; height: 100%; position: relative; background: #080808; transition: width 0.3s ease; }
     #game-container canvas { width: 100% !important; height: 100% !important; display: block; }
 
-    body.terminal-mode #game-container { visibility: hidden; width: 0; overflow: hidden; }
+    body.terminal-mode #game-container { display: none; }
     body.terminal-mode #dispatch-panel { width: 100%; border-left: none; }
 
     /* =============================================
@@ -91,15 +91,58 @@
       text-decoration-color: rgba(204,48,32,0.5);
     }
 
+    #dispatch-status-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      position: relative;
+    }
     #dispatch-status {
       font-size: 11px;
       color: #6a3020;
       letter-spacing: 3px;
       cursor: pointer;
-      position: relative;
       user-select: none;
     }
     #dispatch-status:hover { color: #9a4030; }
+    #shell-indicator {
+      font-size: 9px;
+      color: #4a3020;
+      letter-spacing: 2px;
+      user-select: none;
+      position: relative;
+    }
+    #shell-indicator .shell-label { color: #8a7a60; }
+    #shell-indicator .shell-value {
+      cursor: pointer;
+      color: #8a7a60;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    #shell-indicator .shell-value:hover { color: #d0a060; }
+    #shell-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #1a1008;
+      border: 1px solid #4a3020;
+      z-index: 9999;
+      min-width: 70px;
+      margin-top: 2px;
+    }
+    #shell-dropdown.open { display: block; }
+    #shell-dropdown .shell-option {
+      padding: 4px 10px;
+      cursor: pointer;
+      color: #6a5030;
+      font-size: 9px;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+    #shell-dropdown .shell-option:hover { background: #2a1a08; color: #d0a060; }
+    #shell-dropdown .shell-option.active { color: #d0a060; font-weight: bold; }
 
     #dispatch-status .dot {
       display: inline-block;
@@ -298,6 +341,8 @@
     .agent-card .card-sleep-btn:hover { background: rgba(200,50,30,0.45); border-color: #cc3020; }
     .agent-card.status-awake .card-sleep-btn,
     .agent-card.status-working .card-sleep-btn { display: block; }
+    .agent-card.status-sleeping { opacity: 0.35; }
+    .agent-card.status-sleeping:hover { opacity: 0.7; }
     .agent-card.dragging { opacity: 0.4; border-style: dashed; }
     .agent-card.drag-over { border-color: #cc6030; box-shadow: 0 0 12px rgba(204,96,48,0.3); }
 
@@ -485,11 +530,57 @@
       display: block;
     }
 
+    /* --- PERMISSION PROMPT --- */
+    .perm-prompt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: rgba(204, 96, 32, 0.08);
+      border: 1px solid rgba(204, 96, 32, 0.3);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .perm-icon { color: #cc6020; font-size: 14px; flex-shrink: 0; }
+    .perm-text { color: #c0a070; flex: 1; }
+    .perm-text strong { color: #e0c0a0; }
+    .perm-btn {
+      padding: 3px 10px;
+      border-radius: 3px;
+      border: 1px solid;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .perm-allow {
+      color: #60cc60;
+      border-color: rgba(96,204,96,0.4);
+      background: rgba(96,204,96,0.1);
+    }
+    .perm-allow:hover { background: rgba(96,204,96,0.25); border-color: #60cc60; }
+    .perm-allow-all {
+      color: #ccaa40;
+      border-color: rgba(204,170,64,0.4);
+      background: rgba(204,170,64,0.1);
+    }
+    .perm-allow-all:hover { background: rgba(204,170,64,0.25); border-color: #ccaa40; }
+    .perm-deny {
+      color: #cc4040;
+      border-color: rgba(204,64,64,0.4);
+      background: rgba(204,64,64,0.1);
+    }
+    .perm-deny:hover { background: rgba(204,64,64,0.25); border-color: #cc4040; }
+
     /* --- MARKDOWN RENDERING --- */
     #terminal-output .term-line strong { color: #e0c0a0; font-weight: 700; }
     #terminal-output .term-line em { color: #c0a888; font-style: italic; }
-    #terminal-output .term-line code { background: #1a1208; color: #d0a868; padding: 1px 5px; border-radius: 3px; font-size: 12px; border: 1px solid #2a1a0c; cursor: pointer; position: relative; }
-    #terminal-output .term-line code:hover { border-color: #4a3018; background: #241a0c; }
+    #terminal-output .term-line code { background: rgba(255,200,120,0.06); color: #b8a080; padding: 1px 5px; border-radius: 3px; font-size: 12px; border: 1px solid rgba(255,200,120,0.08); cursor: pointer; position: relative; }
+    #terminal-output .term-line code:hover { border-color: rgba(255,200,120,0.18); background: rgba(255,200,120,0.1); }
     #terminal-output .term-line code.code-copied::after { content: 'copied!'; position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #60cc60; color: #0a0a0a; font-size: 9px; padding: 1px 6px; border-radius: 3px; pointer-events: none; }
     #terminal-output .term-line pre code { cursor: default; }
     #terminal-output .term-line pre code:hover { background: none; border-color: transparent; }
@@ -729,6 +820,43 @@
       min-width: 32px;
     }
 
+    .sb-usage-item { gap: 6px !important; }
+    .sb-usage-btn {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #b89860;
+      background: rgba(180,150,80,0.1);
+      border: 1px solid rgba(180,150,80,0.3);
+      border-radius: 3px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sb-usage-btn:hover { background: rgba(180,150,80,0.25); border-color: #b89860; }
+    .sb-push-btn {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #5a9acf;
+      background: rgba(90,154,207,0.1);
+      border: 1px solid rgba(90,154,207,0.3);
+      border-radius: 3px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sb-push-btn:hover { background: rgba(90,154,207,0.25); border-color: #5a9acf; }
+    .sb-usage-reset {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #6a5a40;
+      white-space: nowrap;
+    }
+    .sb-usage-reset.rate-limited { color: #cc3020; font-weight: 700; }
+
     /* --- COMMAND INPUT --- */
     #command-bar {
       padding: 10px 12px;
@@ -822,10 +950,19 @@
       <!-- HEADER -->
       <div id="dispatch-header">
         <div id="dispatch-title">WOLF'S <span id="mode-basement" style="margin-left:6px;" class="mode-btn active">BASEMENT</span><span class="title-sep"> | </span><span id="mode-terminal" class="mode-btn inactive">TERMINAL</span></div>
-        <div id="dispatch-status" onclick="toggleAuthPopup(event)">
-          <span class="dot" id="auth-dot"></span><span id="auth-status-text">ACTIVE</span>
+        <div id="dispatch-status-group">
+          <div id="dispatch-status" onclick="toggleAuthPopup(event)">
+            <span class="dot" id="auth-dot"></span><span id="auth-status-text">ACTIVE</span>
+          </div>
+          <div id="shell-indicator">
+            <span class="shell-label">Shell: </span><span class="shell-value" id="shell-mode-text" onclick="toggleShellDropdown(event)">CMD</span>
+            <div id="shell-dropdown">
+              <div class="shell-option active" data-mode="cmd" onclick="selectShellMode('cmd')">CMD</div>
+              <div class="shell-option" data-mode="wsl" onclick="selectShellMode('wsl')">WSL</div>
+            </div>
+          </div>
+          <div id="auth-popup"></div>
         </div>
-        <div id="auth-popup"></div>
       </div>
 
       <!-- ROSTER -->
@@ -904,15 +1041,22 @@
                 <option value="bypass" style="color:#cf4a4a">Bypass</option>
               </select>
             </div>
-            <div class="sb-item sb-context-item" id="sb-context-item">
+            <div class="sb-item sb-context-item" id="sb-context-item" style="display:none">
               <span class="sb-label">Context</span>
               <div class="sb-context-bar">
                 <div class="sb-context-fill" id="sb-context-fill"></div>
               </div>
               <span class="sb-context-pct" id="sb-context-pct">—</span>
             </div>
+            <div class="sb-item sb-usage-item">
+              <button class="sb-usage-btn" onclick="window.open('https://claude.ai/settings/usage','_blank')">USAGE</button>
+              <span class="sb-usage-reset" id="sb-usage-reset"></span>
+            </div>
             <div class="sb-item">
               <button class="sb-clear-btn sb-init-btn" id="sb-init-btn" onclick="initAgent()">INIT</button>
+            </div>
+            <div class="sb-item">
+              <button class="sb-push-btn" onclick="gitPush()">PUSH</button>
             </div>
             <div class="sb-item">
               <button class="sb-clear-btn" onclick="clearAgent()">CLEAR</button>
@@ -995,6 +1139,8 @@
     loadAgentSettings();
     let selectedAgent = null;
     let ws = null;
+    let _rateLimitResetsAt = null; // ms timestamp when rate limit resets
+    let _rateLimitStatus = 'allowed';
     const _agentInputText = {}; // per-agent command input text
     let _pickingFolder = false; // guard for folder picker
 
@@ -1149,6 +1295,45 @@
           updateServerIndicator();
           break;
         }
+
+        case 'rate_limit': {
+          _rateLimitResetsAt = msg.resetsAt ? msg.resetsAt * 1000 : null; // convert to ms
+          _rateLimitStatus = msg.status;
+          updateUsageReset();
+          break;
+        }
+
+        case 'shell_mode':
+          updateShellUI(msg.mode);
+          break;
+
+        case 'shell_error':
+          // Show error in the currently selected agent's terminal
+          if (selectedAgent) {
+            appendToTerminal(selectedAgent, `[Shell error: ${msg.error}]`, 'term-error');
+          }
+          break;
+
+        case 'agent_permission_denied': {
+          if (!msg.denials || msg.denials.length === 0) break;
+          const toolNames = msg.denials.map(d => d.tool_name).join(', ');
+          const details = msg.denials.map(d => {
+            if (d.tool_name === 'Bash' && d.tool_input?.command) return `${d.tool_name}: ${d.tool_input.command}`;
+            if (d.tool_name === 'Write' && d.tool_input?.file_path) return `${d.tool_name}: ${d.tool_input.file_path}`;
+            if (d.tool_name === 'Edit' && d.tool_input?.file_path) return `${d.tool_name}: ${d.tool_input.file_path}`;
+            return d.tool_name;
+          }).join(', ');
+          const permId = 'perm-' + Date.now();
+          const html = `<div class="perm-prompt" id="${permId}">` +
+            `<span class="perm-icon">⚠</span> ` +
+            `<span class="perm-text">Permission denied: <strong>${details}</strong></span>` +
+            `<button class="perm-btn perm-allow" onclick="permissionAllow(${msg.id}, '${msg.denials[0].tool_name}', '${permId}')">ALLOW</button>` +
+            `<button class="perm-btn perm-allow-all" onclick="permissionAllowAll(${msg.id}, '${permId}')">ALLOW ALL</button>` +
+            `<button class="perm-btn perm-deny" onclick="permissionDeny('${permId}')">DENY</button>` +
+            `</div>`;
+          appendToTerminal(msg.id, html, 'term-permission', true);
+          break;
+        }
       }
     }
 
@@ -1166,11 +1351,11 @@
       return `${month} ${day}, ${h}:${min}${ampm}`;
     }
 
-    function appendToTerminal(agentId, text, cssClass) {
+    function appendToTerminal(agentId, text, cssClass, rawHTML) {
       if (agentId !== null) {
         const ts = Date.now();
         // Store in agent's terminal
-        agentState[agentId].termLines.push({ text, cls: cssClass, ts });
+        agentState[agentId].termLines.push({ text, cls: cssClass, ts, rawHTML: !!rawHTML });
         // Cap at 500 lines
         if (agentState[agentId].termLines.length > 500) {
           agentState[agentId].termLines = agentState[agentId].termLines.slice(-400);
@@ -1204,7 +1389,7 @@
               return;
             }
           }
-          appendLineToDOM(text, cssClass, ts);
+          appendLineToDOM(text, cssClass, ts, rawHTML);
           // Store full text on tool lines for future grouping
           if (cssClass === 'term-tool') {
             const out = document.getElementById('terminal-output');
@@ -1403,7 +1588,8 @@
       if (cssClass === 'term-cmd') {
         // User command: MASTER + timestamp + > text
         const cmdText = text.startsWith('> ') ? text.slice(2) : text;
-        el.innerHTML = `<span class="cmd-master-tag">MASTER &gt;</span>${tsHtml} ${escapeHtml(cmdText)}`;
+        let cmdHtml = escapeHtml(cmdText).replace(/\[(\+\d+\s+image(?:s)?)\]/g, '<span style="text-decoration:underline">[$1]</span>');
+        el.innerHTML = `<span class="cmd-master-tag">MASTER &gt;</span>${tsHtml} ${cmdHtml}`;
       } else if (cssClass === 'term-text' || cssClass === 'term-result') {
         // Agent response: extract agent name prefix, add colored tag
         const agentMatch = text.match(/^(.+?)>\s*/);
@@ -1458,13 +1644,17 @@
       });
     }
 
-    function appendLineToDOM(text, cssClass, ts) {
+    function appendLineToDOM(text, cssClass, ts, rawHTML) {
       const out = document.getElementById('terminal-output');
       // Only auto-scroll if user is near the bottom (within 80px)
       const nearBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 80;
       const line = document.createElement('div');
       line.className = `term-line ${cssClass}`;
-      formatTermLine(line, text, cssClass, ts);
+      if (rawHTML) {
+        line.innerHTML = text;
+      } else {
+        formatTermLine(line, text, cssClass, ts);
+      }
       out.appendChild(line);
       if (nearBottom) out.scrollTop = out.scrollHeight;
     }
@@ -1496,7 +1686,11 @@
           flushToolGroup();
           const el = document.createElement('div');
           el.className = `term-line ${l.cls}`;
-          formatTermLine(el, l.text, l.cls, l.ts);
+          if (l.rawHTML) {
+            el.innerHTML = l.text;
+          } else {
+            formatTermLine(el, l.text, l.cls, l.ts);
+          }
           out.appendChild(el);
         }
       });
@@ -2019,6 +2213,17 @@
       showStarburst();
     }
 
+    function gitPush() {
+      if (!selectedAgent) return;
+      const state = agentState[selectedAgent];
+      if (state.status === 'sleeping') {
+        ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+      }
+      const prompt = 'Push all committed changes to the remote repository using git push. If there is nothing to push, just say so briefly.';
+      ws.send(JSON.stringify({ type: 'command', id: selectedAgent, text: prompt, model: state.model, mode: state.mode, label: '> /push' }));
+      appendToTerminal(selectedAgent, '> /push', 'term-cmd');
+    }
+
     function showStarburst() {
       const out = document.getElementById('terminal-output');
       if (!out) return;
@@ -2142,6 +2347,22 @@
       updateStatusBar();
     }
 
+    // ===== PERMISSION BUTTONS =====
+    function permissionAllow(agentId, toolName, permId) {
+      ws.send(JSON.stringify({ type: 'permission_allow', id: agentId, tool_name: toolName }));
+      const el = document.getElementById(permId);
+      if (el) el.innerHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${toolName}</strong> — resuming...</span>`;
+    }
+    function permissionAllowAll(agentId, permId) {
+      ws.send(JSON.stringify({ type: 'permission_allow_all', id: agentId }));
+      const el = document.getElementById(permId);
+      if (el) el.innerHTML = '<span class="perm-icon">✓</span> <span class="perm-text">All tools allowed — resuming...</span>';
+    }
+    function permissionDeny(permId) {
+      const el = document.getElementById(permId);
+      if (el) el.innerHTML = '<span class="perm-icon">✗</span> <span class="perm-text" style="color:#4a3a30">Permission denied</span>';
+    }
+
     // ===== PASTE / ATTACHMENTS =====
     let pendingImages = []; // { data: base64, mediaType: string, name: string }
 
@@ -2239,7 +2460,8 @@
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
           console.log(`Sending ${msg.images.length} images, total size: ${JSON.stringify(msg).length} bytes`);
         }
-        const label = pendingImages.length > 0 ? `> ${text || '(image)'} [+${pendingImages.length} file${pendingImages.length > 1 ? 's' : ''}]` : `> ${text}`;
+        const imgCount = pendingImages.length;
+        const label = imgCount > 0 ? `> ${text || '(image)'} [+${imgCount} image${imgCount > 1 ? 's' : ''}]` : `> ${text}`;
         msg.label = label; // include display label so server stores it in history
         ws.send(JSON.stringify(msg));
         agentState[selectedAgent].messageCount++;
@@ -2412,7 +2634,32 @@
       }
     }
 
-    setInterval(tickTimers, 1000);
+    function updateUsageReset() {
+      const el = document.getElementById('sb-usage-reset');
+      if (!el) return;
+      if (_rateLimitStatus === 'rejected') {
+        el.textContent = 'RATE LIMITED';
+        el.className = 'sb-usage-reset rate-limited';
+        return;
+      }
+      if (!_rateLimitResetsAt) {
+        el.textContent = '';
+        el.className = 'sb-usage-reset';
+        return;
+      }
+      const remaining = _rateLimitResetsAt - Date.now();
+      if (remaining <= 0) {
+        el.textContent = 'Resets soon';
+        el.className = 'sb-usage-reset';
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      el.textContent = h > 0 ? `Resets in ${h}h ${m}m` : `Resets in ${m}m`;
+      el.className = 'sb-usage-reset';
+    }
+
+    setInterval(() => { tickTimers(); updateUsageReset(); }, 1000);
 
     // ===== SYSTEM STATS =====
     function tickStats() {
@@ -2482,6 +2729,43 @@
     }
     tickGitStatus();
     setInterval(tickGitStatus, 5000);
+
+    // ===== SHELL MODE INDICATOR =====
+    let _shellMode = 'cmd';
+
+    function updateShellUI(mode) {
+      _shellMode = mode;
+      const el = document.getElementById('shell-mode-text');
+      if (el) {
+        el.textContent = mode.toUpperCase();
+        el.style.color = mode === 'wsl' ? '#60cc60' : '#6a5030';
+      }
+      // update dropdown active state
+      document.querySelectorAll('#shell-dropdown .shell-option').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.mode === mode);
+      });
+    }
+
+    function toggleShellDropdown(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('shell-dropdown');
+      dd.classList.toggle('open');
+    }
+
+    function selectShellMode(mode) {
+      const dd = document.getElementById('shell-dropdown');
+      dd.classList.remove('open');
+      if (mode === _shellMode) return; // already selected, just close
+      const el = document.getElementById('shell-mode-text');
+      if (el) { el.textContent = '...'; el.style.color = '#ccaa40'; }
+      ws.send(JSON.stringify({ type: 'set_shell', mode: mode }));
+    }
+
+    // close dropdown when clicking elsewhere
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('shell-dropdown');
+      if (dd) dd.classList.remove('open');
+    });
 
     // ===== AUTH STATUS INDICATOR =====
     let _authData = null;
@@ -2569,8 +2853,8 @@
       popup.classList.toggle('open');
       if (popup.classList.contains('open')) {
         fetchAuthStatus();
-        // Position below the dispatch-status element
-        const anchor = document.getElementById('dispatch-status');
+        // Position below the dispatch-status-group element
+        const anchor = document.getElementById('dispatch-status-group');
         const rect = anchor.getBoundingClientRect();
         popup.style.top = (rect.bottom + 6) + 'px';
         popup.style.right = (window.innerWidth - rect.right) + 'px';

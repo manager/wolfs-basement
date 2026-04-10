@@ -346,8 +346,8 @@ class RoomScene extends Phaser.Scene {
     });
 
     // Scratched wall text
-    this.add.text(w*0.38+1, 81, "keepsimple.io", { fontFamily: 'monospace', fontSize: '14px', color: '#000000' }).setOrigin(0.5).setAlpha(0.6).setRotation(-0.18);
-    this.add.text(w*0.38, 80, "keepsimple.io", { fontFamily: 'monospace', fontSize: '14px', color: '#8a7a5a' }).setOrigin(0.5).setAlpha(0.55).setRotation(-0.18);
+    this.add.text(w*0.38+1, 101, "keepsimple.io", { fontFamily: 'monospace', fontSize: '14px', color: '#000000' }).setOrigin(0.5).setAlpha(0.6).setRotation(-0.18);
+    this.add.text(w*0.38, 100, "keepsimple.io", { fontFamily: 'monospace', fontSize: '14px', color: '#8a7a5a' }).setOrigin(0.5).setAlpha(0.55).setRotation(-0.18);
 
     // Notes
     [[w*0.26,72,'TODO:\nFix bugs'],[w*0.69,69,'DEPLOY\nFRIDAY']].forEach(([nx,ny,nt]) => {

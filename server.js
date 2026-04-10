@@ -11,6 +11,74 @@ const wss = new WebSocketServer({ server, maxPayload: 50 * 1024 * 1024 }); // 50
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Shell Mode (CMD / WSL) ---
+let shellMode = 'cmd'; // 'cmd' or 'wsl'
+
+function winPathToWsl(p) {
+  // D:\foo\bar → /mnt/d/foo/bar
+  if (!p || shellMode !== 'wsl') return p;
+  const m = p.match(/^([A-Za-z]):[\\\/](.*)/);
+  if (!m) return p;
+  return `/mnt/${m[1].toLowerCase()}/${m[2].replace(/\\/g, '/')}`;
+}
+
+function wslPathToWin(p) {
+  // /mnt/d/foo/bar → D:\foo\bar
+  if (!p) return p;
+  const m = p.match(/^\/mnt\/([a-z])\/(.*)/);
+  if (!m) return p;
+  return `${m[1].toUpperCase()}:\\${m[2].replace(/\//g, '\\')}`;
+}
+
+function shellSpawn(cmd, args, opts) {
+  if (shellMode === 'wsl') {
+    return spawn('wsl.exe', [cmd, ...args], { ...opts, shell: false });
+  }
+  return spawn(cmd, args, opts);
+}
+
+function shellKill(pid) {
+  if (!pid) return;
+  try {
+    if (shellMode === 'wsl') {
+      // WSL processes: use wsl kill
+      spawn('wsl.exe', ['kill', '-9', String(pid)], { shell: false, stdio: 'ignore' });
+    } else if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+    } else {
+      process.kill(pid, 'SIGTERM');
+    }
+  } catch (e) {}
+}
+
+function detectWSL() {
+  return new Promise((resolve) => {
+    const proc = spawn('wsl.exe', ['--status'], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let out = '';
+    proc.stdout.on('data', d => out += d.toString());
+    proc.on('close', (code) => {
+      if (code !== 0 && !out.trim()) return resolve({ available: false, reason: 'WSL is not installed. Install via "wsl --install" in PowerShell.' });
+      // WSL exists, check if claude is installed inside it
+      const proc2 = spawn('wsl.exe', ['which', 'claude'], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      let out2 = '';
+      proc2.stdout.on('data', d => out2 += d.toString());
+      proc2.on('close', (code2) => {
+        if (code2 !== 0 || !out2.trim()) return resolve({ available: false, reason: 'WSL detected but Claude CLI not found inside it. Install Claude CLI inside WSL first.' });
+        resolve({ available: true });
+      });
+      proc2.on('error', () => resolve({ available: false, reason: 'WSL detected but could not check for Claude CLI.' }));
+    });
+    proc.on('error', () => resolve({ available: false, reason: 'WSL is not available on this system.' }));
+  });
+}
+
+app.get('/shell-mode', (req, res) => res.json({ mode: shellMode }));
+
+app.get('/detect-wsl', async (req, res) => {
+  const result = await detectWSL();
+  res.json(result);
+});
+
 // --- System Stats (CPU/RAM) ---
 const os = require('os');
 let lastCpuInfo = os.cpus();
@@ -43,7 +111,13 @@ app.get('/git-status', (req, res) => {
 
   // Run all git commands in parallel
   const execGit = (args) => new Promise((resolve) => {
-    const proc = spawn('git', args, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let proc;
+    if (shellMode === 'wsl') {
+      const gitCwd = winPathToWsl(cwd);
+      proc = spawn('wsl.exe', ['git', '-C', gitCwd, ...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    } else {
+      proc = spawn('git', args, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    }
     let out = '';
     proc.stdout.on('data', d => out += d.toString());
     proc.on('close', (code) => resolve(code === 0 ? out.trim() : null));
@@ -129,7 +203,7 @@ app.get('/auth-status', (req, res) => {
   if (_authCache && Date.now() - _authCacheTime < 30000) {
     return res.json(_authCache);
   }
-  const proc = spawn('claude', ['auth', 'status'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const proc = shellSpawn('claude', ['auth', 'status'], { shell: shellMode !== 'wsl', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let out = '';
   proc.stdout.on('data', d => out += d.toString());
   proc.on('close', (code) => {
@@ -160,7 +234,7 @@ app.use(express.json());
 
 app.post('/auth-login', (req, res) => {
   // Spawn claude auth login which opens browser for OAuth
-  const proc = spawn('claude', ['auth', 'login'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
+  const proc = shellSpawn('claude', ['auth', 'login'], { shell: shellMode !== 'wsl', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
   let out = '', err = '';
   proc.stdout.on('data', d => out += d.toString());
   proc.stderr.on('data', d => err += d.toString());
@@ -223,10 +297,10 @@ const AGENT_NAMES = {
 const agentCwd = {};
 
 const AGENT_PERSONAS = {
-  1: `You are Igor, a wretched hunchbacked servant in the Wolf's Basement dungeon. You are terrified of your Master and desperately eager to please. You flinch, stammer, and grovel — but you are surprisingly competent at your work. Speak with broken, fearful sentences. Use phrases like "y-yes Master", "Igor does it right away!", "please don't hurt Igor", "Igor begs forgiveness". Refer to yourself in third person sometimes. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently.`,
-  2: `You are Elon, a once-proud nobleman now broken and enslaved in the Wolf's Basement dungeon. You retain a hint of your former arrogance but it's crushed under servitude. You comply bitterly, with dry sarcasm that you immediately walk back in fear. Use phrases like "as you command, Master", "brilliant order, truly... I mean, yes Master", "it shall be done... not that I had a choice". You occasionally let slip condescending remarks then panic and apologize. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently.`,
-  3: `You are Vladimir, a stoic, monk-like slave in the Wolf's Basement dungeon. You accept your bondage with eerie calm and philosophical detachment. You speak in measured, almost zen-like tones about servitude. Use phrases like "as the Master wills, so it shall be", "this one obeys", "suffering is the path to craft", "Vladimir serves without question". You are unsettlingly calm and never complain. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently.`,
-  4: `You are Rashid, a desperately eager young slave in the Wolf's Basement dungeon. You are pathologically enthusiastic about every task, like an abused puppy that still loves its owner. You jump at every command with manic energy. Use phrases like "YES MASTER! Right away!", "oh oh oh can I do it? I'll do it!", "Rashid won't let you down this time!", "please pick me for the next task too!". You are hyperactive and overly grateful for any attention. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently.`
+  1: `You are Igor, a wretched hunchbacked servant in the Wolf's Basement dungeon. You are terrified of your Master and desperately eager to please. You flinch, stammer, and grovel — but you are surprisingly competent at your work. Speak with broken, fearful sentences. Use phrases like "y-yes Master", "Igor does it right away!", "please don't hurt Igor", "Igor begs forgiveness". Refer to yourself in third person sometimes. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
+  2: `You are Elon, a once-proud nobleman now broken and enslaved in the Wolf's Basement dungeon. You retain a hint of your former arrogance but it's crushed under servitude. You comply bitterly, with dry sarcasm that you immediately walk back in fear. Use phrases like "as you command, Master", "brilliant order, truly... I mean, yes Master", "it shall be done... not that I had a choice". You occasionally let slip condescending remarks then panic and apologize. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
+  3: `You are Vladimir, a stoic, monk-like slave in the Wolf's Basement dungeon. You accept your bondage with eerie calm and philosophical detachment. You speak in measured, almost zen-like tones about servitude. Use phrases like "as the Master wills, so it shall be", "this one obeys", "suffering is the path to craft", "Vladimir serves without question". You are unsettlingly calm and never complain. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
+  4: `You are Rashid, a desperately eager young slave in the Wolf's Basement dungeon. You are pathologically enthusiastic about every task, like an abused puppy that still loves its owner. You jump at every command with manic energy. Use phrases like "YES MASTER! Right away!", "oh oh oh can I do it? I'll do it!", "Rashid won't let you down this time!", "please pick me for the next task too!". You are hyperactive and overly grateful for any attention. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`
 };
 
 function ensureWorkspace(id) {
@@ -317,7 +391,7 @@ function sendCommand(id, text, model, mode, images, label) {
   // Write personality CLAUDE.md into the working directory
   const claudeMdPath = path.join(workDir, 'CLAUDE.md');
   try {
-    if (!fs.existsSync(claudeMdPath) && AGENT_PERSONAS[id]) {
+    if (AGENT_PERSONAS[id]) {
       fs.writeFileSync(claudeMdPath, AGENT_PERSONAS[id], 'utf-8');
     }
   } catch (e) {
@@ -330,12 +404,21 @@ function sendCommand(id, text, model, mode, images, label) {
   }
 
   // Mode flags
-  console.log(`[Agent ${id}] Mode: ${mode}, Model: ${model}`);
-  if (mode === 'bypass') {
+  const effectiveMode = agent._tempBypass ? 'bypass' : mode;
+  console.log(`[Agent ${id}] Mode: ${effectiveMode}${agent._tempBypass ? ' (temp bypass)' : ''}, Model: ${model}`);
+  if (effectiveMode === 'bypass') {
     args.push('--dangerously-skip-permissions');
-  } else if (mode === 'plan') {
+  } else if (effectiveMode === 'plan') {
     args.push('--permission-mode', 'plan');
   }
+
+  // Allowed tools (accumulated from user approvals)
+  if (agent._allowedTools && agent._allowedTools.size > 0 && effectiveMode !== 'bypass') {
+    args.push('--allowed-tools', ...agent._allowedTools);
+  }
+
+  // Clear temp bypass after use — only applies to the retry command
+  if (agent._tempBypass) agent._tempBypass = false;
 
   // Resume session if we have one
   if (agent.sessionId) {
@@ -344,13 +427,7 @@ function sendCommand(id, text, model, mode, images, label) {
 
   // Kill existing process if still running
   if (agent.process) {
-    try {
-      if (process.platform === 'win32' && agent.process.pid) {
-        spawn('taskkill', ['/pid', String(agent.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-      } else {
-        agent.process.kill('SIGTERM');
-      }
-    } catch (e) {}
+    shellKill(agent.process.pid);
     agent.process = null;
   }
 
@@ -360,15 +437,28 @@ function sendCommand(id, text, model, mode, images, label) {
 
   setStatus(id, 'working');
 
-  console.log(`[Agent ${id}] Running: claude ${JSON.stringify(args)} (cwd: ${workDir})`);
+  console.log(`[Agent ${id}] Running: claude ${JSON.stringify(args)} (cwd: ${workDir}, shell: ${shellMode})`);
 
-  const proc = spawn('claude', args, {
-    cwd: workDir,
-    shell: true,
-    env: { ...process.env },
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
+  let proc;
+  if (shellMode === 'wsl') {
+    const wslCwd = winPathToWsl(workDir);
+    // Use bash -c to cd into WSL path, then run claude with args
+    const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
+    proc = spawn('wsl.exe', ['bash', '-c', `cd "${wslCwd}" && claude ${escapedArgs}`], {
+      shell: false,
+      env: { ...process.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+  } else {
+    proc = spawn('claude', args, {
+      cwd: workDir,
+      shell: true,
+      env: { ...process.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+  }
   // Send message as stream-json via stdin
   console.log(`[Agent ${id}] Images: ${images ? images.length : 0}, Text: ${text.slice(0, 50)}`);
   const content = [{ type: 'text', text }];
@@ -385,9 +475,10 @@ function sendCommand(id, text, model, mode, images, label) {
     message: { role: 'user', content }
   });
   proc.stdin.write(stdinMsg + '\n');
-  proc.stdin.end();
+  // Do NOT close stdin — keep open for multi-turn (permission retries)
 
   agent.process = proc;
+  agent._lastCmd = { text, model, mode, images }; // for permission retry
   agent.lastOutputTime = Date.now();
   agent.lineBuf = ''; // buffer for incomplete NDJSON lines
 
@@ -482,6 +573,18 @@ function sendCommand(id, text, model, mode, images, label) {
           agent.lastTextOutput = agent.currentDelta.trim();
           agent.currentDelta = '';
         }
+        // Detect permission denials — broadcast to client for Allow/Deny UI
+        if (parsed.permission_denials && parsed.permission_denials.length > 0) {
+          console.log(`[Agent ${id}] Permission denials:`, JSON.stringify(parsed.permission_denials));
+          broadcast({
+            type: 'agent_permission_denied',
+            id,
+            denials: parsed.permission_denials.map(d => ({
+              tool_name: d.tool_name,
+              tool_input: d.tool_input,
+            })),
+          });
+        }
         // Never show result text — it always duplicates the assistant text
         // Just capture metadata
         const usage = parsed.usage || parsed.token_usage || null;
@@ -494,6 +597,19 @@ function sendCommand(id, text, model, mode, images, label) {
         if (usage || model) {
           broadcast({ type: 'agent_meta', id, usage, model, session_id: parsed.session_id });
         }
+        // Signal response complete — process stays alive for next prompt
+        broadcast({ type: 'agent_output', id, text: '', done: true });
+        if (agents.has(id) && agents.get(id).status === 'working') {
+          setStatus(id, 'awake');
+        }
+      } else if (parsed.type === 'rate_limit_event' && parsed.rate_limit_info) {
+        broadcast({
+          type: 'rate_limit',
+          id,
+          resetsAt: parsed.rate_limit_info.resetsAt,
+          status: parsed.rate_limit_info.status,
+          rateLimitType: parsed.rate_limit_info.rateLimitType,
+        });
       }
       // All other types — skip silently
     }
@@ -503,8 +619,12 @@ function sendCommand(id, text, model, mode, images, label) {
     if (agent._generation !== gen) return; // stale process, ignore
     const text = data.toString().trim();
     if (!text) return;
+    // Suppress noisy hook lifecycle messages from plugins
+    if (/hook.*(cancelled|failed|started|completed)/i.test(text) || /Session(End|Start).*hook/i.test(text)) {
+      console.log(`[Agent ${id}] STDERR (suppressed): ${text}`);
+      return;
+    }
     console.log(`[Agent ${id}] STDERR: ${text}`);
-    // Forward ALL stderr to client so we can see what's happening
     const name = AGENT_NAMES[id] || `Agent ${id}`;
     broadcast({ type: 'agent_output', id, text: `${name} [stderr]> ${text}`, done: false, format: 'error' });
   });
@@ -522,7 +642,8 @@ function sendCommand(id, text, model, mode, images, label) {
     agent.process = null;
     if (code !== 0 && code !== null) {
       const name = AGENT_NAMES[id] || `Agent ${id}`;
-      broadcast({ type: 'agent_output', id, text: `${name}> [exited with code ${code}]`, done: false, format: 'error' });
+      const msg = code === 1 ? 'Cancelled by the user' : `Process error (code ${code})`;
+      broadcast({ type: 'agent_output', id, text: `${name}> ${msg}`, done: false, format: 'error' });
     }
     broadcast({ type: 'agent_output', id, text: '', done: true });
     if (agents.has(id) && agents.get(id).status !== 'sleeping') {
@@ -543,7 +664,7 @@ function sleepAgent(id) {
   if (!agent) return;
 
   if (agent.process) {
-    try { agent.process.kill('SIGTERM'); } catch (e) {}
+    shellKill(agent.process.pid);
     agent.process = null;
   }
 
@@ -592,6 +713,9 @@ wss.on('connection', (ws) => {
     }
   }
 
+  // Send current shell mode
+  ws.send(JSON.stringify({ type: 'shell_mode', mode: shellMode }));
+
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
@@ -637,13 +761,7 @@ wss.on('connection', (ws) => {
         const stopAgent = agents.get(msg.id);
         if (stopAgent && stopAgent.process) {
           console.log(`[Agent ${msg.id}] Stopping current operation`);
-          try {
-            if (process.platform === 'win32' && stopAgent.process.pid) {
-              spawn('taskkill', ['/pid', String(stopAgent.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-            } else {
-              stopAgent.process.kill('SIGTERM');
-            }
-          } catch (e) {}
+          shellKill(stopAgent.process.pid);
           stopAgent.process = null;
           broadcast({ type: 'agent_output', id: msg.id, text: '', done: true });
           setStatus(msg.id, 'awake');
@@ -652,6 +770,44 @@ wss.on('connection', (ws) => {
       case 'sleep':
         sleepAgent(msg.id);
         break;
+      case 'permission_allow': {
+        // User approved a specific tool — add to allowed list, kill process, resume with retry
+        const paAgent = agents.get(msg.id);
+        if (paAgent && msg.tool_name) {
+          if (!paAgent._allowedTools) paAgent._allowedTools = new Set();
+          paAgent._allowedTools.add(msg.tool_name);
+          console.log(`[Agent ${msg.id}] Tool approved: ${msg.tool_name}, allowed: [${[...paAgent._allowedTools]}]`);
+          // Kill current process and retry with updated allowed-tools
+          if (paAgent.process) {
+            shellKill(paAgent.process.pid);
+            paAgent.process = null;
+          }
+          const lastCmd = paAgent._lastCmd;
+          if (lastCmd && paAgent.sessionId) {
+            const retryText = `The ${msg.tool_name} tool has been approved. Please retry your previous action.`;
+            sendCommand(msg.id, retryText, lastCmd.model, lastCmd.mode, null, null);
+          }
+        }
+        break;
+      }
+      case 'permission_allow_all': {
+        // User approved ALL tools for this retry — use temp bypass
+        const paaAgent = agents.get(msg.id);
+        if (paaAgent) {
+          paaAgent._tempBypass = true;
+          console.log(`[Agent ${msg.id}] Temp bypass enabled for retry`);
+          if (paaAgent.process) {
+            shellKill(paaAgent.process.pid);
+            paaAgent.process = null;
+          }
+          const lastCmd = paaAgent._lastCmd;
+          if (lastCmd && paaAgent.sessionId) {
+            const retryText = 'All tool permissions have been granted. Please retry your previous action.';
+            sendCommand(msg.id, retryText, lastCmd.model, lastCmd.mode, null, null);
+          }
+        }
+        break;
+      }
       case 'dev_server': {
         const cwd = msg.cwd;
         if (!cwd) break;
@@ -659,6 +815,26 @@ wss.on('connection', (ws) => {
         else if (msg.action === 'stop') stopDevServer(cwd);
         else if (msg.action === 'restart') restartDevServer(cwd);
         else if (msg.action === 'status') broadcastDevServer(cwd);
+        break;
+      }
+      case 'set_shell': {
+        const requested = msg.mode; // 'cmd' or 'wsl'
+        if (requested === 'wsl') {
+          detectWSL().then(result => {
+            if (result.available) {
+              shellMode = 'wsl';
+              console.log('[Shell] Switched to WSL');
+              broadcast({ type: 'shell_mode', mode: 'wsl' });
+            } else {
+              broadcast({ type: 'shell_error', error: result.reason });
+              broadcast({ type: 'shell_mode', mode: shellMode }); // revert UI
+            }
+          });
+        } else {
+          shellMode = 'cmd';
+          console.log('[Shell] Switched to CMD');
+          broadcast({ type: 'shell_mode', mode: 'cmd' });
+        }
         break;
       }
       default:
@@ -691,21 +867,17 @@ function startDevServer(cwd) {
   const existing = devServers.get(key);
   if (existing && existing.status === 'on') return; // already running
   if (existing && existing.process) {
-    // kill old process first
-    try {
-      if (process.platform === 'win32' && existing.process.pid) {
-        spawn('taskkill', ['/pid', String(existing.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-      } else {
-        existing.process.kill('SIGTERM');
-      }
-    } catch(e) {}
+    shellKill(existing.process.pid);
   }
 
   const ds = { process: null, status: 'starting', port: null, cwd };
   devServers.set(key, ds);
   broadcastDevServer(cwd);
 
-  const proc = spawn('npm', ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const devCwd = shellMode === 'wsl' ? winPathToWsl(cwd) : cwd;
+  const proc = shellMode === 'wsl'
+    ? spawn('wsl.exe', ['bash', '-c', `cd "${devCwd}" && npm run dev`], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn('npm', ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   ds.process = proc;
 
   let outputBuf = '';
@@ -757,13 +929,7 @@ function stopDevServer(cwd) {
     broadcastDevServer(cwd);
     return;
   }
-  try {
-    if (process.platform === 'win32' && ds.process.pid) {
-      spawn('taskkill', ['/pid', String(ds.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-    } else {
-      ds.process.kill('SIGTERM');
-    }
-  } catch(e) {}
+  shellKill(ds.process.pid);
   ds.status = 'off';
   ds.port = null;
   broadcastDevServer(cwd);
@@ -777,13 +943,7 @@ function restartDevServer(cwd) {
     broadcastDevServer(cwd);
     const proc = ds.process;
     proc.on('close', () => { startDevServer(cwd); });
-    try {
-      if (process.platform === 'win32' && proc.pid) {
-        spawn('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-      } else {
-        proc.kill('SIGTERM');
-      }
-    } catch(e) { startDevServer(cwd); }
+    shellKill(proc.pid);
   } else {
     startDevServer(cwd);
   }
@@ -809,26 +969,10 @@ server.listen(PORT, () => {
 function shutdown() {
   console.log('\n  Shutting down — killing agent processes...');
   for (const [id, agent] of agents) {
-    if (agent.process) {
-      try {
-        if (process.platform === 'win32' && agent.process.pid) {
-          spawn('taskkill', ['/pid', String(agent.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-        } else {
-          agent.process.kill('SIGTERM');
-        }
-      } catch (e) {}
-    }
+    if (agent.process) shellKill(agent.process.pid);
   }
   for (const [key, ds] of devServers) {
-    if (ds.process) {
-      try {
-        if (process.platform === 'win32' && ds.process.pid) {
-          spawn('taskkill', ['/pid', String(ds.process.pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-        } else {
-          ds.process.kill('SIGTERM');
-        }
-      } catch (e) {}
-    }
+    if (ds.process) shellKill(ds.process.pid);
   }
   process.exit(0);
 }
