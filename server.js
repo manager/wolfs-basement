@@ -156,6 +156,57 @@ app.get('/auth-status', (req, res) => {
   });
 });
 
+app.use(express.json());
+
+app.post('/auth-login', (req, res) => {
+  // Spawn claude auth login which opens browser for OAuth
+  const proc = spawn('claude', ['auth', 'login'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
+  let out = '', err = '';
+  proc.stdout.on('data', d => out += d.toString());
+  proc.stderr.on('data', d => err += d.toString());
+  proc.on('close', (code) => {
+    _authCache = null; // invalidate cache
+    if (code === 0) {
+      res.json({ ok: true });
+    } else {
+      res.json({ ok: false, error: err.trim() || 'Login failed' });
+    }
+  });
+  proc.on('error', (e) => {
+    res.json({ ok: false, error: e.message });
+  });
+});
+
+app.post('/auth-apikey', (req, res) => {
+  const key = req.body && req.body.key;
+  if (!key || typeof key !== 'string' || !key.startsWith('sk-ant-')) {
+    return res.json({ ok: false, error: 'Invalid API key format (must start with sk-ant-)' });
+  }
+  // Set in process env so all spawned agents inherit it
+  process.env.ANTHROPIC_API_KEY = key;
+  // Persist to .env file so it survives restarts
+  const envPath = path.join(__dirname, '.env');
+  try {
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf-8');
+      // Replace existing key or append
+      if (/^ANTHROPIC_API_KEY=.*/m.test(envContent)) {
+        envContent = envContent.replace(/^ANTHROPIC_API_KEY=.*/m, `ANTHROPIC_API_KEY=${key}`);
+      } else {
+        envContent += `\nANTHROPIC_API_KEY=${key}`;
+      }
+    } else {
+      envContent = `ANTHROPIC_API_KEY=${key}`;
+    }
+    fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf-8');
+  } catch (e) {
+    // Still works for this session even if .env write fails
+  }
+  _authCache = null; // invalidate cache
+  res.json({ ok: true });
+});
+
 // --- Agent Process Manager ---
 
 const MAX_AGENTS = 4;

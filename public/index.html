@@ -136,10 +136,65 @@
       border-bottom: 1px solid #1a0e08;
     }
     #auth-popup .auth-row:last-child { border-bottom: none; }
+    #auth-popup .auth-row-clickable { cursor: pointer; }
+    #auth-popup .auth-row-clickable:hover .auth-value { color: #ffcc60; }
+    #auth-popup .auth-row-clickable:hover .auth-label { color: #8a6a40; }
     #auth-popup .auth-label { color: #6a5030; }
     #auth-popup .auth-value { color: #d0a060; text-align: right; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #auth-popup .auth-value.good { color: #50cc50; }
     #auth-popup .auth-value.bad { color: #cc4040; }
+    #auth-popup .auth-actions {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #2a1810;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #auth-popup .auth-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid #3a2010;
+      background: #1a0e08;
+      color: #d0a060;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #auth-popup .auth-btn:hover { background: #2a1808; border-color: #5a3020; color: #ffcc60; }
+    #auth-popup .auth-btn .auth-btn-title { font-weight: bold; }
+    #auth-popup .auth-btn .auth-btn-desc { color: #6a5030; font-size: 10px; margin-top: 2px; }
+    #auth-popup .auth-key-input {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid #3a2010;
+      background: #0e0806;
+      color: #d0a060;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 4px;
+    }
+    #auth-popup .auth-key-input:focus { border-color: #5a3020; }
+    #auth-popup .auth-key-submit {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      border: 1px solid #3a6030;
+      background: #1a2008;
+      color: #60cc60;
+      margin-top: 4px;
+    }
+    #auth-popup .auth-key-submit:hover { background: #2a3018; border-color: #50aa40; }
+    #auth-popup .auth-msg { font-size: 10px; color: #6a5030; margin-top: 4px; padding: 4px 0; }
+    #auth-popup .auth-msg.ok { color: #50cc50; }
+    #auth-popup .auth-msg.err { color: #cc4040; }
 
     @keyframes doomPulse {
       0%, 100% { opacity: 1; }
@@ -2451,19 +2506,50 @@
       }).catch(() => {});
     }
 
+    let _authSwitchOpen = false;
+
     function renderAuthPopup() {
       const popup = document.getElementById('auth-popup');
       if (!_authData) { popup.innerHTML = '<div class="auth-row"><span class="auth-label">Loading...</span></div>'; return; }
       const d = _authData;
       let rows = '';
       rows += authRow('Status', d.loggedIn ? 'Authenticated' : 'Not authenticated', d.loggedIn ? 'good' : 'bad');
-      rows += authRow('Method', formatAuthMethod(d.authMethod));
+
+      // Method row — clickable when authed to allow switching
+      if (d.loggedIn) {
+        rows += `<div class="auth-row auth-row-clickable" onclick="authToggleSwitch(event)"><span class="auth-label">Method</span><span class="auth-value" title="Click to switch">${formatAuthMethod(d.authMethod)} &#9662;</span></div>`;
+      } else {
+        rows += authRow('Method', formatAuthMethod(d.authMethod));
+      }
+
       if (d.email) rows += authRow('Account', d.email);
       if (d.orgName && d.orgName !== d.email) rows += authRow('Org', d.orgName);
       if (d.subscriptionType) rows += authRow('Plan', d.subscriptionType.charAt(0).toUpperCase() + d.subscriptionType.slice(1));
       if (d.apiKey) rows += authRow('API Key', d.apiKey);
       if (d.apiProvider) rows += authRow('Provider', d.apiProvider === 'firstParty' ? 'Anthropic' : d.apiProvider);
+
+      // Auth actions — shown when not logged in OR when user clicked to switch method
+      if (!d.loggedIn || _authSwitchOpen) {
+        rows += `<div class="auth-actions">
+          <button class="auth-btn" onclick="authStartOAuth(event)">
+            <div class="auth-btn-title">Sign in with Claude.ai</div>
+            <div class="auth-btn-desc">Opens browser for OAuth login</div>
+          </button>
+          <button class="auth-btn" onclick="authShowKeyInput(event)">
+            <div class="auth-btn-title">Use API Key</div>
+            <div class="auth-btn-desc">Enter your Anthropic API key (sk-ant-...)</div>
+          </button>
+          <div id="auth-key-area"></div>
+          <div id="auth-msg"></div>
+        </div>`;
+      }
       popup.innerHTML = rows;
+    }
+
+    function authToggleSwitch(e) {
+      e.stopPropagation();
+      _authSwitchOpen = !_authSwitchOpen;
+      renderAuthPopup();
     }
 
     function authRow(label, value, cls) {
@@ -2494,6 +2580,55 @@
 
     function closeAuthPopup() {
       document.getElementById('auth-popup').classList.remove('open');
+      _authSwitchOpen = false;
+    }
+
+    function authStartOAuth(e) {
+      e.stopPropagation();
+      const msgEl = document.getElementById('auth-msg');
+      if (msgEl) { msgEl.className = 'auth-msg'; msgEl.textContent = 'Opening browser for login...'; }
+      fetch('/auth-login', { method: 'POST' }).then(r => r.json()).then(data => {
+        if (data.ok) {
+          if (msgEl) { msgEl.className = 'auth-msg ok'; msgEl.textContent = 'Authenticated!'; }
+          setTimeout(() => fetchAuthStatus(), 500);
+        } else {
+          if (msgEl) { msgEl.className = 'auth-msg err'; msgEl.textContent = data.error || 'Login failed'; }
+        }
+      }).catch(() => {
+        if (msgEl) { msgEl.className = 'auth-msg err'; msgEl.textContent = 'Request failed'; }
+      });
+    }
+
+    function authShowKeyInput(e) {
+      e.stopPropagation();
+      const area = document.getElementById('auth-key-area');
+      if (!area) return;
+      area.innerHTML = `<input type="password" class="auth-key-input" id="auth-key-field" placeholder="sk-ant-..." onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){authSubmitKey(event)}">
+        <button class="auth-key-submit" onclick="authSubmitKey(event)">Save Key</button>`;
+      setTimeout(() => { const f = document.getElementById('auth-key-field'); if (f) f.focus(); }, 50);
+    }
+
+    function authSubmitKey(e) {
+      e.stopPropagation();
+      const field = document.getElementById('auth-key-field');
+      const msgEl = document.getElementById('auth-msg');
+      if (!field || !field.value.trim()) return;
+      const key = field.value.trim();
+      if (msgEl) { msgEl.className = 'auth-msg'; msgEl.textContent = 'Saving...'; }
+      fetch('/auth-apikey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
+      }).then(r => r.json()).then(data => {
+        if (data.ok) {
+          if (msgEl) { msgEl.className = 'auth-msg ok'; msgEl.textContent = 'API key saved!'; }
+          setTimeout(() => fetchAuthStatus(), 500);
+        } else {
+          if (msgEl) { msgEl.className = 'auth-msg err'; msgEl.textContent = data.error || 'Failed to save'; }
+        }
+      }).catch(() => {
+        if (msgEl) { msgEl.className = 'auth-msg err'; msgEl.textContent = 'Request failed'; }
+      });
     }
 
     // Initial fetch

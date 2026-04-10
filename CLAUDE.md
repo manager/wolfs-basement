@@ -93,10 +93,14 @@ Client sends WebSocket JSON → Server handles in switch (`summon`, `command`, `
 
 ### Auth Status Indicator
 
-- Top-right "ACTIVE" indicator is clickable, shows auth popup with read-only info from `claude auth status`.
+- Top-right "ACTIVE" indicator is clickable, shows auth popup with info from `claude auth status`.
 - Dot color: green when authenticated, red when not. Label: "AUTHED" (OAuth), "API KEY", or "NO AUTH".
 - Popup shows: status, auth method, account email, org, plan, provider.
 - Server caches auth check for 30s. Falls back to `ANTHROPIC_API_KEY` env var check if CLI fails.
+- **Not authenticated**: popup shows two action buttons — "Sign in with Claude.ai" (OAuth via browser) and "Use API Key" (text input for `sk-ant-...` key).
+- **Already authenticated**: Method row is clickable (▾ arrow). Clicking toggles the same auth switch buttons. Existing auth is preserved unless user explicitly completes a new flow.
+- OAuth: server spawns `claude auth login` which opens browser. API Key: server sets `process.env.ANTHROPIC_API_KEY` and persists to `.env` file (gitignored).
+- Server endpoints: `POST /auth-login` (OAuth), `POST /auth-apikey` (API key with `sk-ant-` validation). Both invalidate auth cache on success.
 
 ### Keyboard Shortcuts
 
