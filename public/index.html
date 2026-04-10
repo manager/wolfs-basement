@@ -251,10 +251,11 @@
       background: #100a06;
     }
 
-    #roster-grid { display: flex; gap: 6px; }
+    #roster-grid { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .agent-card {
-      flex: 1;
+      flex: 1 1 0;
+      min-width: 80px;
       background: #0e0a08;
       border: 1px solid #2a1810;
       border-radius: 4px;
@@ -287,12 +288,43 @@
     }
 
     .agent-card .card-icon {
-      font-size: 22px;
-      line-height: 26px;
-      margin-bottom: 2px;
+      font-size: 16px;
+      line-height: 1;
       color: #e8d0b0;
       text-shadow: 0 0 10px rgba(232,208,176,0.4), 0 0 20px rgba(232,208,176,0.15);
       filter: brightness(1.4) contrast(1.2) grayscale(0.7) sepia(0.3);
+    }
+
+    #icon-picker {
+      display: none;
+      position: fixed;
+      background: #1a1008;
+      border: 1px solid #4a3020;
+      border-radius: 4px;
+      padding: 6px;
+      z-index: 9999;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 2px;
+      max-width: 280px;
+    }
+    #icon-picker.open { display: grid; }
+    #icon-picker .icon-option {
+      font-size: 18px;
+      padding: 4px;
+      cursor: pointer;
+      text-align: center;
+      border-radius: 3px;
+      line-height: 1.2;
+    }
+    #icon-picker .icon-option:hover { background: #2a1a08; }
+
+    .agent-card .card-info {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 0 18px;
     }
 
     .agent-card .card-name {
@@ -301,7 +333,6 @@
       font-weight: 700;
       color: #c0b0a0;
       letter-spacing: 2px;
-      margin-bottom: 3px;
     }
 
     .agent-card .card-status {
@@ -311,7 +342,13 @@
       letter-spacing: 2px;
       padding: 2px 6px;
       border-radius: 2px;
-      display: inline-block;
+    }
+
+    .agent-card .card-project {
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      font-size: 9px;
+      color: #6a5a40;
+      letter-spacing: 1px;
     }
 
     .card-status.sleeping { color: #4a3a30; background: #1a1210; border: 1px solid #2a1a14; }
@@ -849,6 +886,20 @@
       transition: all 0.15s;
     }
     .sb-push-btn:hover { background: rgba(90,154,207,0.25); border-color: #5a9acf; }
+    .sb-push-btn.push-pulse-soft {
+      animation: pushPulseSoft 2s infinite;
+    }
+    @keyframes pushPulseSoft {
+      0%, 100% { box-shadow: 0 0 3px rgba(90,154,207,0.15); background: rgba(90,154,207,0.1); }
+      50% { box-shadow: 0 0 8px rgba(90,154,207,0.35); background: rgba(90,154,207,0.2); border-color: #6aaadf; }
+    }
+    .sb-push-btn.push-pulse {
+      animation: pushPulse 1.2s infinite;
+    }
+    @keyframes pushPulse {
+      0%, 100% { box-shadow: 0 0 4px rgba(90,154,207,0.2); background: rgba(90,154,207,0.1); }
+      50% { box-shadow: 0 0 14px rgba(90,154,207,0.6); background: rgba(90,154,207,0.3); border-color: #7abbef; }
+    }
     .sb-usage-reset {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 10px;
@@ -971,32 +1022,45 @@
           <div class="agent-card" data-id="1" draggable="true" onclick="selectAgent(1)"
                style="--agent-color: #cc4040; --agent-color-rgb: 204,64,64;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(1)" title="Kill">x</div>
-            <div class="card-icon">&#128367;</div>
-            <div class="card-name">IGOR</div>
-            <div class="card-status sleeping" id="card-status-1">SLEEPING</div>
+            <div class="card-info">
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128367;</span>
+              <span class="card-name">IGOR</span>
+              <span class="card-status sleeping" id="card-status-1">SLEEPING</span>
+              <span class="card-project" id="card-project-1"></span>
+            </div>
           </div>
           <div class="agent-card" data-id="2" draggable="true" onclick="selectAgent(2)"
                style="--agent-color: #6090cc; --agent-color-rgb: 96,144,204;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(2)" title="Kill">x</div>
-            <div class="card-icon">&#9939;</div>
-            <div class="card-name">ELON</div>
-            <div class="card-status sleeping" id="card-status-2">SLEEPING</div>
+            <div class="card-info">
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#9939;</span>
+              <span class="card-name">ELON</span>
+              <span class="card-status sleeping" id="card-status-2">SLEEPING</span>
+              <span class="card-project" id="card-project-2"></span>
+            </div>
           </div>
           <div class="agent-card" data-id="3" draggable="true" onclick="selectAgent(3)"
                style="--agent-color: #60cc60; --agent-color-rgb: 96,204,96;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
-            <div class="card-icon">&#129772;</div>
-            <div class="card-name">VLADIMIR</div>
-            <div class="card-status sleeping" id="card-status-3">SLEEPING</div>
+            <div class="card-info">
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#129772;</span>
+              <span class="card-name">VLADIMIR</span>
+              <span class="card-status sleeping" id="card-status-3">SLEEPING</span>
+              <span class="card-project" id="card-project-3"></span>
+            </div>
           </div>
           <div class="agent-card" data-id="4" draggable="true" onclick="selectAgent(4)"
                style="--agent-color: #ccaa40; --agent-color-rgb: 204,170,64;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(4)" title="Kill">x</div>
-            <div class="card-icon">&#128293;</div>
-            <div class="card-name">رشيد</div>
-            <div class="card-status sleeping" id="card-status-4">SLEEPING</div>
+            <div class="card-info">
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128293;</span>
+              <span class="card-name">رشيد</span>
+              <span class="card-status sleeping" id="card-status-4">SLEEPING</span>
+              <span class="card-project" id="card-project-4"></span>
+            </div>
           </div>
         </div>
+        <div id="icon-picker"></div>
       </div>
 
       <!-- TERMINAL AREA -->
@@ -1056,7 +1120,7 @@
               <button class="sb-clear-btn sb-init-btn" id="sb-init-btn" onclick="initAgent()">INIT</button>
             </div>
             <div class="sb-item">
-              <button class="sb-push-btn" onclick="gitPush()">PUSH</button>
+              <button class="sb-push-btn" id="sb-push-btn" onclick="gitPush()">PUSH</button>
             </div>
             <div class="sb-item">
               <button class="sb-clear-btn" onclick="clearAgent()">CLEAR</button>
@@ -1137,6 +1201,7 @@
       };
     }
     loadAgentSettings();
+    loadAgentIcons();
     let selectedAgent = null;
     let ws = null;
     let _rateLimitResetsAt = null; // ms timestamp when rate limit resets
@@ -1711,6 +1776,16 @@
       // Hover tooltip with project folder
       const cwd = agentState[id].cwd;
       card.title = status !== 'sleeping' && cwd ? `Project: ${cwd}` : '';
+      // Project name on tile
+      const projectEl = document.getElementById(`card-project-${id}`);
+      if (projectEl) {
+        if (cwd && status !== 'sleeping') {
+          const folderName = cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop();
+          projectEl.textContent = 'at ' + folderName;
+        } else {
+          projectEl.textContent = '';
+        }
+      }
     }
 
     // ===== TERMINAL HEADER =====
@@ -1803,29 +1878,103 @@
       if (!selectedAgent) return;
       const msgs = agentState[selectedAgent].messageCount || 0;
       const ctxHigh = contextRatio > 0.7;
-      const msgsHigh = msgs >= 30;
-      const msgsMed = msgs >= 15;
+      const ctxMid = contextRatio > 0.5;
+      const msgsHigh = msgs >= 20;
 
-      // Remove all pulse classes first
       initBtn.classList.remove('init-pulse', 'init-pulse-soft');
 
-      // Determine pulse level and tooltip
       if (ctxHigh && msgsHigh) {
         initBtn.classList.add('init-pulse');
         initBtn.title = `Context 70%+ full & ${msgs} messages — INIT strongly recommended`;
       } else if (ctxHigh) {
         initBtn.classList.add('init-pulse');
         initBtn.title = `Context window 70%+ full — INIT to free space`;
-      } else if (msgsHigh) {
-        initBtn.classList.add('init-pulse');
-        initBtn.title = `${msgs} messages — session getting long, INIT recommended`;
-      } else if (msgsMed) {
+      } else if (ctxMid && msgsHigh) {
         initBtn.classList.add('init-pulse-soft');
-        initBtn.title = `${msgs} messages in session — consider saving progress`;
+        initBtn.title = `Context 50%+ full & ${msgs} messages — consider INIT`;
+      } else if (msgsHigh) {
+        initBtn.classList.add('init-pulse-soft');
+        initBtn.title = `${msgs} messages — consider saving progress with INIT`;
       } else {
         initBtn.title = 'Save progress & compact context (INIT)';
       }
     }
+
+    function updatePushPulse() {
+      const pushBtn = document.getElementById('sb-push-btn');
+      if (!pushBtn) return;
+      const { dirty, ahead } = _lastGitData;
+
+      pushBtn.classList.remove('push-pulse', 'push-pulse-soft');
+
+      if (ahead >= 1) {
+        pushBtn.classList.add('push-pulse');
+        pushBtn.title = `${ahead} commit${ahead > 1 ? 's' : ''} not pushed to remote — PUSH recommended`;
+      } else if (dirty >= 5) {
+        pushBtn.classList.add('push-pulse-soft');
+        pushBtn.title = `${dirty} unsaved files — consider pushing`;
+      } else {
+        pushBtn.title = 'Commit and push changes to remote';
+      }
+    }
+
+    // ===== ICON PICKER =====
+    const ICON_POOL = ['🕯️','⚗️','🔮','💀','⚔️','🛡️','🗡️','👑','🏰','🐉','🦇','🕷️','🐺','🔥','💎','⚰️','🧪','🪄','🧙','📜','🗝️','⛏️','🏺','🌙','☠️','🎭','🦉','🐍','🪬','🧿','👁️','🫀'];
+    let _iconTarget = null;
+
+    function openIconPicker(el) {
+      const picker = document.getElementById('icon-picker');
+      if (picker.classList.contains('open') && _iconTarget === el) {
+        picker.classList.remove('open');
+        return;
+      }
+      _iconTarget = el;
+      picker.innerHTML = ICON_POOL.map(icon =>
+        `<div class="icon-option" onclick="event.stopPropagation(); pickIcon('${icon}')">${icon}</div>`
+      ).join('');
+      const rect = el.getBoundingClientRect();
+      picker.style.left = Math.min(rect.left, window.innerWidth - 290) + 'px';
+      picker.style.top = (rect.bottom + 4) + 'px';
+      picker.classList.add('open');
+    }
+
+    function pickIcon(icon) {
+      if (_iconTarget) {
+        _iconTarget.textContent = icon;
+        saveAgentIcons();
+      }
+      document.getElementById('icon-picker').classList.remove('open');
+      _iconTarget = null;
+    }
+
+    function saveAgentIcons() {
+      const icons = {};
+      document.querySelectorAll('.agent-card').forEach(card => {
+        const id = card.dataset.id;
+        const iconEl = card.querySelector('.card-icon');
+        if (id && iconEl) icons[id] = iconEl.textContent;
+      });
+      localStorage.setItem('agentIcons', JSON.stringify(icons));
+    }
+
+    function loadAgentIcons() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('agentIcons'));
+        if (!saved) return;
+        document.querySelectorAll('.agent-card').forEach(card => {
+          const id = card.dataset.id;
+          const iconEl = card.querySelector('.card-icon');
+          if (id && iconEl && saved[id]) iconEl.textContent = saved[id];
+        });
+      } catch(e) {}
+    }
+
+    document.addEventListener('click', (e) => {
+      const picker = document.getElementById('icon-picker');
+      if (picker && !picker.contains(e.target) && !e.target.classList.contains('card-icon')) {
+        picker.classList.remove('open');
+      }
+    });
 
     // ===== AGENT SELECTION =====
     function selectAgent(id) {
@@ -2682,6 +2831,7 @@
 
     // ===== GIT STATUS =====
     let _lastGitCwd = null;
+    let _lastGitData = { dirty: 0, ahead: 0 };
     function tickGitStatus() {
       if (!selectedAgent) return;
       const cwd = agentState[selectedAgent].cwd;
@@ -2723,8 +2873,14 @@
         if (data.dirty === 0 && data.ahead === 0 && data.behind === 0) tipLines.push('Everything is committed and in sync');
         if (data.lastCommit) tipLines.push(`Last commit: ${data.lastCommit}`);
         gitItem.title = tipLines.join('\n');
+
+        // Store for PUSH pulse logic
+        _lastGitData = { dirty: data.dirty || 0, ahead: data.ahead || 0 };
+        updatePushPulse();
       }).catch(() => {
         document.getElementById('sb-git-item').style.display = 'none';
+        _lastGitData = { dirty: 0, ahead: 0 };
+        updatePushPulse();
       });
     }
     tickGitStatus();

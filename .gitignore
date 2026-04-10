@@ -3,3 +3,4 @@ workspaces/
 .env
 .env.*
 .claude/
+config.json

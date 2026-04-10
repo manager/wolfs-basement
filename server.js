@@ -11,8 +11,17 @@ const wss = new WebSocketServer({ server, maxPayload: 50 * 1024 * 1024 }); // 50
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Config persistence ---
+const configPath = path.join(__dirname, 'config.json');
+function loadConfig() {
+  try { return JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch(e) { return {}; }
+}
+function saveConfig(cfg) {
+  try { fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8'); } catch(e) {}
+}
+
 // --- Shell Mode (CMD / WSL) ---
-let shellMode = 'cmd'; // 'cmd' or 'wsl'
+let shellMode = loadConfig().shellMode || 'cmd';
 
 function winPathToWsl(p) {
   // D:\foo\bar → /mnt/d/foo/bar
@@ -48,6 +57,14 @@ function shellKill(pid) {
     } else {
       process.kill(pid, 'SIGTERM');
     }
+  } catch (e) {}
+}
+
+function killPort(port) {
+  if (!port || process.platform !== 'win32' || shellMode === 'wsl') return;
+  try {
+    const proc = spawn('cmd', ['/c', `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /pid %a /t /f`], { shell: false, stdio: 'ignore', windowsHide: true });
+    proc.on('error', () => {});
   } catch (e) {}
 }
 
@@ -663,6 +680,12 @@ function sleepAgent(id) {
   const agent = agents.get(id);
   if (!agent) return;
 
+  // Stop dev server for this agent's project first
+  const cwd = agentCwd[id] || agent.cwd;
+  if (cwd) {
+    stopDevServer(cwd);
+  }
+
   if (agent.process) {
     shellKill(agent.process.pid);
     agent.process = null;
@@ -823,6 +846,7 @@ wss.on('connection', (ws) => {
           detectWSL().then(result => {
             if (result.available) {
               shellMode = 'wsl';
+              saveConfig({ ...loadConfig(), shellMode });
               console.log('[Shell] Switched to WSL');
               broadcast({ type: 'shell_mode', mode: 'wsl' });
             } else {
@@ -832,6 +856,7 @@ wss.on('connection', (ws) => {
           });
         } else {
           shellMode = 'cmd';
+          saveConfig({ ...loadConfig(), shellMode });
           console.log('[Shell] Switched to CMD');
           broadcast({ type: 'shell_mode', mode: 'cmd' });
         }
@@ -930,6 +955,8 @@ function stopDevServer(cwd) {
     return;
   }
   shellKill(ds.process.pid);
+  killPort(ds.port);
+  ds.process = null;
   ds.status = 'off';
   ds.port = null;
   broadcastDevServer(cwd);
