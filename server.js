@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -53,11 +53,27 @@ function wslPathToWin(p) {
   return `${m[1].toUpperCase()}:\\${m[2].replace(/\//g, '\\')}`;
 }
 
+// Resolve full binary paths at startup to prevent CWD-based hijacking on Windows.
+// When shell: true, cmd.exe searches CWD before PATH — a malicious repo could plant
+// git.cmd / claude.cmd / npm.cmd to execute arbitrary code. Full paths bypass this.
+function resolveBin(name) {
+  if (process.platform !== 'win32') return name;
+  try {
+    const r = spawnSync('where', [name], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+    if (r.status === 0 && r.stdout.trim()) return r.stdout.trim().split(/\r?\n/)[0];
+  } catch {}
+  return name;
+}
+const GIT_BIN = resolveBin('git');
+const CLAUDE_BIN = resolveBin('claude');
+const NPM_BIN = resolveBin('npm');
+
 function shellSpawn(cmd, args, opts) {
   if (shellMode === 'wsl') {
     return spawn('wsl.exe', [cmd, ...args], { ...opts, shell: false });
   }
-  return spawn(cmd, args, opts);
+  const bin = { git: GIT_BIN, claude: CLAUDE_BIN, npm: NPM_BIN }[cmd] || cmd;
+  return spawn(bin, args, opts);
 }
 
 function shellKill(pid) {
@@ -149,7 +165,7 @@ app.get('/git-status', (req, res) => {
       const gitCwd = winPathToWsl(cwd);
       proc = spawn('wsl.exe', ['git', '-C', gitCwd, ...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     } else {
-      proc = spawn('git', args, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      proc = spawn(GIT_BIN, args, { cwd, shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     }
     let out = '';
     proc.stdout.on('data', d => out += d.toString());
@@ -198,14 +214,14 @@ app.get('/git-status', (req, res) => {
 // --- Folder Picker (Windows native dialog) ---
 app.get('/pick-folder', (req, res) => {
   const startDir = req.query.start || '';
-  const escapedDir = startDir.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const escapedDir = startDir.replace(/'/g, "''"); // PS single-quote escape (no variable expansion)
   const psScript = `
 Add-Type -AssemblyName System.Windows.Forms
 $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
 $dlg.Description = "Select working directory for agent"
 $dlg.UseDescriptionForTitle = $true
 $dlg.ShowNewFolderButton = $true
-$startPath = "${escapedDir}"
+$startPath = '${escapedDir}'
 if ($startPath -and (Test-Path $startPath)) { $dlg.SelectedPath = $startPath }
 $owner = New-Object System.Windows.Forms.Form
 $owner.TopMost = $true
@@ -484,15 +500,17 @@ function sendCommand(id, text, model, mode, images, label) {
   if (shellMode === 'wsl') {
     const wslCwd = winPathToWsl(workDir);
     // Use bash -c to cd into WSL path, then run claude with args
+    // Single-quote cwd to prevent shell injection via directory names containing $() or backticks
+    const safeCwd = wslCwd.replace(/'/g, "'\\''");
     const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
-    proc = spawn('wsl.exe', ['bash', '-c', `cd "${wslCwd}" && claude ${escapedArgs}`], {
+    proc = spawn('wsl.exe', ['bash', '-c', `cd '${safeCwd}' && claude ${escapedArgs}`], {
       shell: false,
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
   } else {
-    proc = spawn('claude', args, {
+    proc = spawn(CLAUDE_BIN, args, {
       cwd: workDir,
       shell: true,
       env: { ...process.env },
@@ -927,10 +945,10 @@ function startDevServer(cwd) {
   devServers.set(key, ds);
   broadcastDevServer(cwd);
 
-  const devCwd = shellMode === 'wsl' ? winPathToWsl(cwd) : cwd;
+  const devCwd = shellMode === 'wsl' ? winPathToWsl(cwd).replace(/'/g, "'\\''") : cwd;
   const proc = shellMode === 'wsl'
-    ? spawn('wsl.exe', ['bash', '-c', `cd "${devCwd}" && npm run dev`], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
-    : spawn('npm', ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    ? spawn('wsl.exe', ['bash', '-c', `cd '${devCwd}' && npm run dev`], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn(NPM_BIN, ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   ds.process = proc;
 
   let outputBuf = '';

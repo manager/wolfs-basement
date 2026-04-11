@@ -1454,7 +1454,7 @@
               // Update display: show collapsed summary
               const count = lastLine._toolGroup.length;
               lastLine.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
-                `<span class="tool-group-summary">${count} tool calls: ${lastLine._toolGroup.join(', ')}</span>` +
+                `<span class="tool-group-summary">${count} tool calls: ${lastLine._toolGroup.map(l => escapeHtml(l)).join(', ')}</span>` +
                 `<div class="tool-group-details">${lastLine._toolFullTexts.map(t => `<div>${escapeHtml(t)}</div>`).join('')}</div>`;
               // Keep fire at bottom
               const fire = document.getElementById(`fire-indicator-${agentId}`);
@@ -1749,7 +1749,7 @@
         } else {
           const labels = toolGroup.map(t => _toolShortLabel(t.text));
           el.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
-            `<span class="tool-group-summary">${toolGroup.length} tool calls: ${labels.join(', ')}</span>` +
+            `<span class="tool-group-summary">${toolGroup.length} tool calls: ${labels.map(l => escapeHtml(l)).join(', ')}</span>` +
             `<div class="tool-group-details">${toolGroup.map(t => `<div>${escapeHtml(t.text)}</div>`).join('')}</div>`;
         }
         out.appendChild(el);
