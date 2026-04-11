@@ -5,6 +5,17 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Load .env file (API key persistence, DEBUG flag, PORT override)
+const envPath = path.join(__dirname, '.env');
+try {
+  if (fs.existsSync(envPath)) {
+    for (const line of fs.readFileSync(envPath, 'utf-8').split('\n')) {
+      const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+    }
+  }
+} catch (e) {}
+
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 function debug(...args) { if (DEBUG) console.log(...args); }
 
@@ -53,8 +64,10 @@ function shellKill(pid) {
   if (!pid) return;
   try {
     if (shellMode === 'wsl') {
-      // WSL processes: use wsl kill
-      spawn('wsl.exe', ['kill', '-9', String(pid)], { shell: false, stdio: 'ignore' });
+      // WSL: proc.pid is the Windows PID of wsl.exe, not the Linux PID inside WSL.
+      // Kill the Windows-side process tree (wsl.exe + children) via taskkill,
+      // which also terminates the Linux process it wraps.
+      spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
     } else if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
     } else {
@@ -765,7 +778,7 @@ wss.on('connection', (ws) => {
         // Store user's display text in output buffer for history replay
         const cmdAgent = agents.get(msg.id);
         if (cmdAgent) {
-          cmdAgent.outputBuffer.push({ text: msg.text, cls: msg.cls || 'term-cmd', ts: Date.now() });
+          bufferPush(cmdAgent, { text: msg.text, cls: msg.cls || 'term-cmd', ts: Date.now() });
         }
         break;
       }
