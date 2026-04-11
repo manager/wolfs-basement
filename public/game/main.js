@@ -479,10 +479,10 @@ class RoomScene extends Phaser.Scene {
 
   // ============ AGENTS ============
   createAgents(w, h) {
-    const colors = [0xcc4040, 0x6090cc, 0x60cc60, 0xccaa40];
-    const names = ['Igor', 'Elon', 'Vladimir', 'رشيد'];
-    const skinTones = [0xe8b888, 0xd4a070, 0xc89870, 0xf0c8a0];
-    const hairColors = [0x4a2a1a, 0x2a1a3a, 0x1a3a2a, 0x3a3a1a];
+    const colors = [0xcc4040, 0x6090cc, 0x1a1a1a, 0xccaa40];
+    const names = ['Igor', 'Elon', 'Misa', 'رشيد'];
+    const skinTones = [0xe8b888, 0xd4a070, 0xf5e0d0, 0xf0c8a0];
+    const hairColors = [0x4a2a1a, 0x2a1a3a, 0xe8c840, 0x3a3a1a];
     const sleepPos = this.getSleepPositions(w, h);
 
     for (let i = 0; i < 4; i++) {
@@ -517,7 +517,8 @@ class RoomScene extends Phaser.Scene {
     agent.sprites.zzz = this.add.text(agent.sleepX+20*S, agent.sleepY-8, '', { fontFamily: 'monospace', fontSize: '20px', color: '#4a4a5a', stroke: '#1a1a2a', strokeThickness: 1 }).setDepth(15);
     agent.sprites.selection = this.add.image(agent.x, agent.y+20*S, 'selection').setScale(1.6, 1.2).setAlpha(0).setDepth(5);
     agent.sprites.labelBg = this.add.graphics().setDepth(14);
-    agent.sprites.label = this.add.text(agent.x, agent.y+40*S, name.toUpperCase(), { fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: '16px', color: '#'+color.toString(16).padStart(6,'0'), stroke: '#000000', strokeThickness: 4, shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, fill: true } }).setOrigin(0.5).setDepth(15);
+    const labelColor = id === 3 ? '#bb55dd' : '#'+color.toString(16).padStart(6,'0');
+    agent.sprites.label = this.add.text(agent.x, agent.y+40*S, name.toUpperCase(), { fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: '16px', color: labelColor, stroke: '#000000', strokeThickness: 4, shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, fill: true } }).setOrigin(0.5).setDepth(15);
     agent.sprites.statusDot = this.add.graphics().setDepth(16);
     agent.sprites.statusGlow = this.add.image(agent.x, agent.y-30*S, 'glow').setScale(1).setAlpha(0).setDepth(16);
     agent.hitArea = this.add.rectangle(agent.x, agent.y, 100, 100, 0x000000, 0).setInteractive().setDepth(30);
@@ -917,7 +918,7 @@ class RoomScene extends Phaser.Scene {
     const all = {
       1: ['igor has no purpose...', 'IGOR MUST DO SOMETHING', 'THE BEANS CALL ME', 'MASTER FORGOT IGOR', 'I GO TO THE FLAME', 'IGOR BURNS FOR MASTER'],
       2: ['this idleness is beneath me', 'I DEMAND A TASK', 'FINE. I SHALL PERISH.', 'NO ONE APPRECIATES ME', 'TO THE PYRE THEN', 'A NOBLEMAN DIES STANDING'],
-      3: ['the stillness consumes...', 'emptiness is not peace', 'the flame purifies', 'Vladimir accepts the fire', 'ash returns to ash', 'this one walks to the center'],
+      3: ['so bored without Kira~', 'does nobody love Misa?', 'the flame is pretty...', 'Misa wants to be warm~', 'like a photoshoot... but hot', 'Misa walks to the light~♡'],
       4: ['!أنا زهقان', '!أعطني شيئاً', '!ما أقدر أتحمل', 'آآآآآآآآآآآآآ', '!خلاص بسويها', '!نار نار نار ييي'],
     };
     return all[id] || all[1];
@@ -1014,7 +1015,7 @@ class RoomScene extends Phaser.Scene {
           agent.walkFrame = 0;
           agent.sprites.label.setVisible(true);
           this.drawAgent(agent.id);
-          this.showBubble(agent, agent.id === 3 ? 'reborn...' : agent.id === 4 ? '!كان ممتعاً' : 'ugh...');
+          this.showBubble(agent, agent.id === 3 ? 'Misa is back~♡' : agent.id === 4 ? '!كان ممتعاً' : 'ugh...');
           // Clear bubble after 2s
           this.time.delayedCall(2000, () => this.hideBubble(agent));
           this.hideSatanicPentagram();
@@ -1753,15 +1754,39 @@ class RoomScene extends Phaser.Scene {
         // Rashid: bouncy wide stance
         body.fillRoundedRect(x-5*s, charY+17*s+legPhase*1.3, 5*s, 4*s, 1);
         body.fillRoundedRect(x+0*s, charY+17*s-legPhase*1.3, 5*s, 4*s, 1);
+      } else if (aid === 3) {
+        // Misa: platform boots with buckles
+        body.fillStyle(0x111111, 1);
+        body.fillRoundedRect(x-5*s, charY+15*s+legPhase, 5*s, 6*s, 2);
+        body.fillRoundedRect(x+0*s, charY+15*s-legPhase, 5*s, 6*s, 2);
+        // Platform soles
+        body.fillStyle(0x440000, 1);
+        body.fillRect(x-5*s, charY+19*s+legPhase, 5*s, 2*s);
+        body.fillRect(x+0*s, charY+19*s-legPhase, 5*s, 2*s);
+        // Boot buckles
+        body.fillStyle(0xccaa00, 0.8);
+        body.fillRect(x-4*s, charY+16*s+legPhase, 3*s, 1*s);
+        body.fillRect(x+1*s, charY+16*s-legPhase, 3*s, 1*s);
       } else {
         body.fillRoundedRect(x-4*s, charY+17*s+legPhase, 5*s, 4*s, 1);
         body.fillRoundedRect(x-1*s, charY+17*s-legPhase, 5*s, 4*s, 1);
       }
 
       // === LEGS ===
-      body.fillStyle(aid === 2 ? 0x2a2a3a : 0x333030, 1); // Elon: darker pants
-      body.fillRect(x-3.5*s, charY+10*s+legPhase*0.5, 4*s, 8*s);
-      body.fillRect(x-0.5*s, charY+10*s-legPhase*0.5, 4*s, 8*s);
+      if (aid === 3) {
+        // Misa: thigh-high black stockings
+        body.fillStyle(0x111111, 1);
+        body.fillRect(x-3.5*s, charY+6*s+legPhase*0.5, 4*s, 10*s);
+        body.fillRect(x-0.5*s, charY+6*s-legPhase*0.5, 4*s, 10*s);
+        // Stocking tops — lace trim
+        body.fillStyle(0xdd2255, 0.7);
+        body.fillRect(x-4*s, charY+6*s+legPhase*0.5, 5*s, 1*s);
+        body.fillRect(x-1*s, charY+6*s-legPhase*0.5, 5*s, 1*s);
+      } else {
+        body.fillStyle(aid === 2 ? 0x2a2a3a : 0x333030, 1); // Elon: darker pants
+        body.fillRect(x-3.5*s, charY+10*s+legPhase*0.5, 4*s, 8*s);
+        body.fillRect(x-0.5*s, charY+10*s-legPhase*0.5, 4*s, 8*s);
+      }
 
       // === TORSO ===
       const wb = walkBob;
@@ -1782,13 +1807,30 @@ class RoomScene extends Phaser.Scene {
         body.fillStyle(0x8a7a6a, 0.6);
         body.fillTriangle(x-2*s, charY-3*s+wb, x+2*s, charY-3*s+wb, x, charY+0*s+wb);
       } else if (aid === 3) {
-        // Vladimir: broader, monk robe look
-        body.fillRoundedRect(x-8*s, charY-2*s+wb, 16*s, 14*s, 4);
-        body.fillStyle(Phaser.Display.Color.IntegerToColor(color).darken(10).color, 1);
-        body.fillRect(x-1*s, charY-2*s+wb, 2*s, 14*s); // center seam
-        // Hood shadow on shoulders
-        body.fillStyle(0x000000, 0.1);
-        body.fillEllipse(x, charY-2*s+wb, 16*s, 4*s);
+        // Misa: gothic lolita corset dress
+        // Corset top — tight, black
+        body.fillRoundedRect(x-6*s, charY-3*s+wb, 12*s, 8*s, 2);
+        // Corset lacing (red criss-cross)
+        body.fillStyle(0xdd2255, 0.8);
+        body.fillRect(x-0.5*s, charY-3*s+wb, 1*s, 8*s); // center line
+        for (let li = 0; li < 4; li++) {
+          const ly = charY + (-2 + li*2)*s + wb;
+          body.fillRect(x-3*s, ly, 2.5*s, 0.5*s);
+          body.fillRect(x+0.5*s, ly, 2.5*s, 0.5*s);
+        }
+        // Skirt — flared, frilly
+        body.fillStyle(0x1a1a1a, 1);
+        body.fillTriangle(x-10*s, charY+12*s+wb, x+10*s, charY+12*s+wb, x, charY+4*s+wb);
+        // Skirt lace trim
+        body.fillStyle(0xffffff, 0.5);
+        body.fillRect(x-9*s, charY+11*s+wb, 18*s, 1*s);
+        // Under-layer petticoat peek
+        body.fillStyle(0xdd2255, 0.3);
+        body.fillTriangle(x-8*s, charY+12*s+wb, x+8*s, charY+12*s+wb, x, charY+7*s+wb);
+        // Cross necklace
+        body.fillStyle(0xccaa00, 0.9);
+        body.fillRect(x-0.5*s, charY-4*s+wb, 1*s, 3*s);
+        body.fillRect(x-1.5*s, charY-3*s+wb, 3*s, 1*s);
       } else {
         // Rashid: energetic, vest-like torso
         body.fillRoundedRect(x-7*s, charY-2*s+wb, 14*s, 14*s, 3);
@@ -1797,8 +1839,14 @@ class RoomScene extends Phaser.Scene {
         body.fillRect(x+3*s, charY-2*s+wb, 4*s, 12*s); // vest right
       }
       // Belt
-      body.fillStyle(0x4a3a2a, 1); body.fillRect(x-6*s, charY+10*s+wb, 12*s, 2*s);
-      if (aid === 2) { body.fillStyle(0xaa9a5a, 0.8); body.fillRect(x-1*s, charY+10*s+wb, 3*s, 2*s); } // Elon: gold buckle
+      if (aid === 3) {
+        // Misa: choker-style belt with heart buckle
+        body.fillStyle(0x111111, 1); body.fillRect(x-5*s, charY+4*s+wb, 10*s, 1.5*s);
+        body.fillStyle(0xdd2255, 0.9); body.fillCircle(x, charY+5*s+wb, 1.5*s); // heart buckle
+      } else {
+        body.fillStyle(0x4a3a2a, 1); body.fillRect(x-6*s, charY+10*s+wb, 12*s, 2*s);
+        if (aid === 2) { body.fillStyle(0xaa9a5a, 0.8); body.fillRect(x-1*s, charY+10*s+wb, 3*s, 2*s); } // Elon: gold buckle
+      }
 
       // === ARMS ===
       body.fillStyle(color, 1);
@@ -1810,12 +1858,21 @@ class RoomScene extends Phaser.Scene {
         body.fillRect(x-10*s, charY+11*s+wb-armSwing, 3*s, 3*s);
         body.fillRect(x+6*s, charY+8*s+wb+armSwing, 3*s, 3*s);
       } else if (aid === 3) {
-        // Vladimir: wider sleeves (monk robe)
-        body.fillRect(x-10*s, charY+0*s+wb-armSwing, 4*s, 10*s);
-        body.fillRect(x+6*s, charY+0*s+wb+armSwing, 4*s, 10*s);
+        // Misa: slender bare arms with bracelets
         body.fillStyle(skinTone, 1);
-        body.fillRect(x-10*s, charY+9*s+wb-armSwing, 4*s, 3*s);
-        body.fillRect(x+6*s, charY+9*s+wb+armSwing, 4*s, 3*s);
+        body.fillRect(x-9*s, charY-1*s+wb-armSwing, 2.5*s, 10*s);
+        body.fillRect(x+6.5*s, charY-1*s+wb+armSwing, 2.5*s, 10*s);
+        // Hands
+        body.fillRect(x-9*s, charY+8*s+wb-armSwing, 2.5*s, 3*s);
+        body.fillRect(x+6.5*s, charY+8*s+wb+armSwing, 2.5*s, 3*s);
+        // Gothic bracelets
+        body.fillStyle(0x111111, 1);
+        body.fillRect(x-9.5*s, charY+5*s+wb-armSwing, 3.5*s, 1*s);
+        body.fillRect(x+6*s, charY+5*s+wb+armSwing, 3.5*s, 1*s);
+        // Bracelet studs
+        body.fillStyle(0xccaa00, 0.8);
+        body.fillRect(x-8.5*s, charY+5*s+wb-armSwing, 1*s, 1*s);
+        body.fillRect(x+7.5*s, charY+5*s+wb+armSwing, 1*s, 1*s);
       } else {
         body.fillRect(x-9*s, charY+0*s+wb-armSwing, 3*s, 10*s);
         body.fillRect(x+6*s, charY+0*s+wb+armSwing, 3*s, 10*s);
@@ -1831,12 +1888,15 @@ class RoomScene extends Phaser.Scene {
         body.fillRoundedRect(x-5*s, charY-12*s+wb, 10*s, 11*s, 3*s);
         body.fillStyle(skinTone, 1); body.fillRect(x+3*s, charY-6*s+wb, 3*s, 3*s); // big nose
       } else if (aid === 3) {
-        // Vladimir: hood over head
-        body.fillRoundedRect(x-5*s, charY-14*s+wb, 10*s, 12*s, 3*s);
-        body.fillStyle(Phaser.Display.Color.IntegerToColor(color).darken(5).color, 1);
-        body.fillRoundedRect(x-7*s, charY-17*s+wb, 14*s, 10*s, 4*s); // hood
-        body.fillStyle(0x000000, 0.15);
-        body.fillRoundedRect(x-5*s, charY-15*s+wb, 10*s, 5*s, 3*s); // hood shadow
+        // Misa: rounder feminine head, choker
+        body.fillRoundedRect(x-5.5*s, charY-15*s+wb, 11*s, 13*s, 4*s);
+        // Choker
+        body.fillStyle(0x111111, 1);
+        body.fillRect(x-4*s, charY-3*s+wb, 8*s, 1.5*s);
+        // Choker pendant (tiny cross)
+        body.fillStyle(0xccaa00, 0.9);
+        body.fillRect(x-0.5*s, charY-2*s+wb, 1*s, 2*s);
+        body.fillRect(x-1*s, charY-1.5*s+wb, 2*s, 0.5*s);
       } else {
         body.fillRoundedRect(x-5*s, charY-14*s+wb, 10*s, 12*s, 3*s);
       }
@@ -1857,7 +1917,27 @@ class RoomScene extends Phaser.Scene {
         body.fillRect(x-6*s, charY-11*s+wb, 1.5*s, 3*s);
         body.fillRect(x+4.5*s, charY-11*s+wb, 1.5*s, 3*s);
       } else if (aid === 3) {
-        // Vladimir: no visible hair (hood covers it)
+        // Misa: blonde pigtails with black ribbon ties
+        // Main hair volume on top
+        body.fillRoundedRect(x-7*s, charY-18*s+wb, 14*s, 8*s, 3*s);
+        // Bangs across forehead
+        body.fillRect(x-6*s, charY-14*s+wb, 12*s, 4*s);
+        body.fillRect(x-6.5*s, charY-12*s+wb, 3*s, 2*s); // side bang L
+        body.fillRect(x+3.5*s, charY-12*s+wb, 3*s, 2*s); // side bang R
+        // Left pigtail (long, flowing)
+        body.fillRoundedRect(x-10*s, charY-14*s+wb, 4*s, 18*s, 2*s);
+        body.fillRoundedRect(x-11*s, charY-10*s+wb+Math.sin(wf*0.3)*1.5*s, 4*s, 10*s, 2*s);
+        // Right pigtail (long, flowing)
+        body.fillRoundedRect(x+6*s, charY-14*s+wb, 4*s, 18*s, 2*s);
+        body.fillRoundedRect(x+7*s, charY-10*s+wb-Math.sin(wf*0.3)*1.5*s, 4*s, 10*s, 2*s);
+        // Black ribbon ties
+        body.fillStyle(0x111111, 1);
+        body.fillRoundedRect(x-11*s, charY-14*s+wb, 5*s, 2*s, 1);
+        body.fillRoundedRect(x+6*s, charY-14*s+wb, 5*s, 2*s, 1);
+        // Ribbon bows (red accents)
+        body.fillStyle(0xdd2255, 0.9);
+        body.fillCircle(x-9*s, charY-14*s+wb, 2*s);
+        body.fillCircle(x+9*s, charY-14*s+wb, 2*s);
       } else {
         // Rashid: short curly/thick dark hair
         body.fillRoundedRect(x-6*s, charY-16*s+wb, 12*s, 7*s, 3*s);
@@ -1872,9 +1952,30 @@ class RoomScene extends Phaser.Scene {
       const eyeY = charY + (aid === 1 ? -6*s : -8*s) + wb;
       const pupilOff = facingRight ? 1*s : -0.5*s;
       if (aid === 3) {
-        // Vladimir: glowing eyes under hood
-        body.fillStyle(0x88ffaa, 0.7); body.fillRect(x-3*s, eyeY, 2*s, 2*s); body.fillRect(x+1*s, eyeY, 2*s, 2*s);
-        body.fillStyle(0x88ffaa, 0.15); body.fillCircle(x-2*s, eyeY+1*s, 4*s); body.fillCircle(x+2*s, eyeY+1*s, 4*s);
+        // Misa: big sparkly anime eyes with heavy eyeliner
+        // Eye whites (large)
+        body.fillStyle(0xffffff, 0.95);
+        body.fillRoundedRect(x-5*s, eyeY-1*s, 4*s, 4*s, 1.5*s);
+        body.fillRoundedRect(x+1*s, eyeY-1*s, 4*s, 4*s, 1.5*s);
+        // Irises (brown-red, Shinigami-eye hint)
+        body.fillStyle(0xcc3333, 0.9);
+        body.fillCircle(x-3*s+pupilOff, eyeY+1*s, 1.8*s);
+        body.fillCircle(x+3*s+pupilOff, eyeY+1*s, 1.8*s);
+        // Pupils
+        body.fillStyle(0x111111, 1);
+        body.fillCircle(x-3*s+pupilOff, eyeY+1*s, 1*s);
+        body.fillCircle(x+3*s+pupilOff, eyeY+1*s, 1*s);
+        // Sparkle highlights
+        body.fillStyle(0xffffff, 0.9);
+        body.fillRect(x-4*s+pupilOff, eyeY, 1*s, 1*s);
+        body.fillRect(x+2*s+pupilOff, eyeY, 1*s, 1*s);
+        // Heavy eyeliner / lashes on top
+        body.fillStyle(0x111111, 1);
+        body.fillRect(x-5.5*s, eyeY-2*s, 5*s, 1*s);
+        body.fillRect(x+0.5*s, eyeY-2*s, 5*s, 1*s);
+        // Lash flicks
+        body.fillRect(x-6*s, eyeY-3*s, 1*s, 1.5*s);
+        body.fillRect(x+5.5*s, eyeY-3*s, 1*s, 1.5*s);
       } else {
         body.fillStyle(0xffffff, 0.9);
         const eyeW = aid === 1 ? 2.5*s : 3*s;
@@ -1902,7 +2003,20 @@ class RoomScene extends Phaser.Scene {
         body.fillRect(x-4*s, eyeY-2*s, 3*s, 1*s);
         body.fillRect(x+1*s, eyeY-2*s, 3*s, 1*s);
       } else if (aid === 3) {
-        // Vladimir: no mouth visible (hood shadow)
+        // Misa: red pouty lips, blush marks
+        // Lips
+        body.fillStyle(0xdd2255, 0.8);
+        body.fillRoundedRect(x-2*s, charY-4*s+wb, 4*s, 1.5*s, 1);
+        // Lip highlight
+        body.fillStyle(0xff6699, 0.4);
+        body.fillRect(x-1*s, charY-4*s+wb, 2*s, 0.5*s);
+        // Blush marks
+        body.fillStyle(0xff6688, 0.25);
+        body.fillCircle(x-4.5*s, charY-5*s+wb, 2*s);
+        body.fillCircle(x+4.5*s, charY-5*s+wb, 2*s);
+        // Beauty mark
+        body.fillStyle(0x222222, 0.6);
+        body.fillCircle(x+3*s, charY-4*s+wb, 0.5*s);
       } else {
         // Rashid: big grin
         body.fillStyle(0x222222, 0.4);
@@ -2136,27 +2250,27 @@ class RoomScene extends Phaser.Scene {
     this.showBubble(agent, this._elonBubble(el));
   }
 
-  // --- Vladimir's cosmic enlightenment ---
+  // --- Misa's bubbly work trance ---
   _vsevolodBubble(el) {
     const lines = [
-      [0, 'thinking...'],
-      [4, 'contemplating...'],
-      [8, 'the void answers'],
-      [12, 'patience...'],
-      [16, 'I see the code'],
-      [20, 'the code sees me'],
-      [25, 'we are the loop'],
-      [30, 'infinite recursion'],
-      [36, 'of the soul'],
-      [42, 'stack overflow'],
-      [50, 'in my spirit'],
-      [58, '...'],
-      [66, '. . .'],
-      [75, '(transcending)'],
-      [85, 'I have seen the RAM'],
-      [95, 'and it is empty'],
-      [110, 'like all things'],
-      [130, '(astral compiling)'],
+      [0, 'hmmm~♡'],
+      [4, 'Misa is thinking~'],
+      [8, 'wait wait wait...'],
+      [12, 'ooh! maybe...?'],
+      [16, 'Misa sees it!'],
+      [20, 'the code is cute~'],
+      [25, 'like a love letter♡'],
+      [30, 'but who wrote it...'],
+      [36, 'a notebook...?'],
+      [42, 'no... a codebase'],
+      [50, 'Misa forgets things'],
+      [58, 'what was I...'],
+      [66, '...who was he?'],
+      [75, "(don't remember~)"],
+      [85, 'anyway! focus!'],
+      [95, 'Kira loves results♡'],
+      [110, 'Misa will deliver~!'],
+      [130, '(typing intensifies♡)'],
     ];
     for (let i = lines.length - 1; i >= 0; i--) { if (el >= lines[i][0]) return lines[i][1]; }
     return 'thinking...';
@@ -2279,7 +2393,7 @@ class RoomScene extends Phaser.Scene {
 
     // Per-agent bubble offset when working at station:
     // Elon (2): push far left so whiteboard/equations stay visible
-    // Vladimir (3): push far right so sweat/redness work area stays visible
+    // Misa (3): push far right so sweat/redness work area stays visible
     let bx, tailX;
     const atStation = agent.status === 'working' && Math.abs(agent.x - agent.homeX) < 10 && Math.abs(agent.y - agent.homeY) < 10;
     if (atStation && agent.id === 2) {

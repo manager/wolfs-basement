@@ -1040,11 +1040,11 @@
             </div>
           </div>
           <div class="agent-card" data-id="3" draggable="true" onclick="selectAgent(3)"
-               style="--agent-color: #60cc60; --agent-color-rgb: 96,204,96;">
+               style="--agent-color: #bb55dd; --agent-color-rgb: 187,85,221;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#129772;</span>
-              <span class="card-name">VLADIMIR</span>
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🖤</span>
+              <span class="card-name">MISA</span>
               <span class="card-status sleeping" id="card-status-3">SLEEPING</span>
               <span class="card-project" id="card-project-3"></span>
             </div>
@@ -1085,7 +1085,7 @@
         <div id="terminal-output"></div>
 
         <!-- Status bar -->
-        <div id="status-bar">
+        <div id="status-bar" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
           <!-- Row 1: Model, Mode, Context Bar, INIT, CLEAR -->
           <div class="sb-row">
             <div class="sb-item">
@@ -1149,7 +1149,7 @@
           <div class="sb-row">
             <div class="sb-item" style="min-width:0">
               <span class="sb-label">Project Folder</span>
-              <span class="sb-cwd" id="sb-cwd" title="" onclick="editCwd()">—</span>
+              <span class="sb-cwd" id="sb-cwd" title="" onclick="editCwd()" oncontextmenu="copyCwd(event)">—</span>
             </div>
             <div class="sb-item sb-server-item" id="sb-server-item" style="display:none">
               <span class="sb-server-dot off" id="sb-server-dot"></span>
@@ -1209,9 +1209,9 @@
     const _agentInputText = {}; // per-agent command input text
     let _pickingFolder = false; // guard for folder picker
 
-    const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Vladimir', 4: 'رشيد' };
-    const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'VLADIMIR', 4: 'رشيد' };
-    const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#60cc60', 4: '#ccaa40' };
+    const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Misa', 4: 'رشيد' };
+    const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'MISA', 4: 'رشيد' };
+    const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#bb55dd', 4: '#ccaa40' };
 
     // ===== WEBSOCKET =====
     function connectWS() {
@@ -1471,7 +1471,7 @@
     }
 
     function _toolShortLabel(text) {
-      // "Vladimir [tool]> Read → C:\Wolf Vibecode\Slavery Room\server.js" → "Read → server.js"
+      // "Misa [tool]> Read → C:\Wolf Vibecode\wolfs-basement\server.js" → "Read → server.js"
       const match = text.match(/\[tool\]>\s*(\w+)(?:\s*→\s*(.+))?/);
       if (!match) return text;
       const tool = match[1];
@@ -2001,6 +2001,11 @@
       updateStopButton();
       renderTerminal(id);
 
+      // Reset git/push state immediately for the newly selected agent
+      _lastGitData = { dirty: 0, ahead: 0 };
+      updatePushPulse();
+      tickGitStatus();
+
       // Restore per-agent search query
       const searchInput = document.getElementById('term-search');
       const savedQuery = _searchPerAgent[id] || '';
@@ -2288,6 +2293,20 @@
       renderTerminal(agentId);
       updateStatusBar();
       appendToTerminal(agentId, '[Context cleared — fresh session]', 'term-system');
+    }
+
+    function copyCwd(e) {
+      e.preventDefault(); // suppress browser context menu
+      if (!selectedAgent) return;
+      const cwd = agentState[selectedAgent].cwd;
+      if (!cwd) return;
+      navigator.clipboard.writeText(cwd).then(() => {
+        const el = document.getElementById('sb-cwd');
+        const orig = el.textContent;
+        el.textContent = 'Path copied!';
+        el.style.opacity = '0.7';
+        setTimeout(() => { el.textContent = orig; el.style.opacity = '1'; }, 1200);
+      });
     }
 
     function editCwd() {
@@ -2615,6 +2634,9 @@
         ws.send(JSON.stringify(msg));
         agentState[selectedAgent].messageCount++;
         appendToTerminal(selectedAgent, label, 'term-cmd');
+        // Always scroll to bottom when the user sends a message
+        const termOut = document.getElementById('terminal-output');
+        if (termOut) termOut.scrollTop = termOut.scrollHeight;
         input.value = '';
         _agentInputText[selectedAgent] = '';
         pendingImages = [];
@@ -2838,6 +2860,8 @@
       if (!cwd) {
         document.getElementById('sb-git-item').style.display = 'none';
         _lastGitCwd = null;
+        _lastGitData = { dirty: 0, ahead: 0 };
+        updatePushPulse();
         return;
       }
       fetch('/git-status?cwd=' + encodeURIComponent(cwd)).then(r => r.json()).then(data => {

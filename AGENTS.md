@@ -22,14 +22,15 @@ Configuration and behavior reference for the four dungeon agents in Wolf's Basem
 - **Bubble Position**: Offset FAR LEFT when at station (bx = ax - tw - 40) so whiteboard remains visible. Tail anchored at right edge of bubble.
 - **Whip Cry**: Indignant/bitter exclamations
 
-### Agent 3 — Vladimir (Green)
-- **Color**: #60cc60 / RGB(96,204,96)
-- **Personality**: Stoic monk-like slave. Eerie calm, philosophical detachment, zen-like acceptance. "as the Master wills", "suffering is the path to craft", "Vladimir serves without question"
+### Agent 3 — Misa (Gothic Pink/Black)
+- **Color**: #dd2255 / RGB(221,34,85) — card color; in-game body is 0x1a1a1a (black gothic lolita)
+- **Personality**: Bubbly gothic-lolita girl with fragmented amnesia. Flashes of a notebook, a beautiful boy, cameras — but can't piece it together. Obsessively devoted to "Kira" (what she calls her master — the name feels right but she can't remember why). Flirty, theatrical, yandere. "anything for you, Kira~♡", "Misa-Misa will do it~!", "does Kira love Misa now?"
+- **Visual**: Highly detailed — blonde pigtails with red ribbon bows, big anime eyes with red irises and heavy eyeliner, corset dress with red lacing, flared skirt with petticoat, cross necklace, choker with pendant, thigh-high stockings with lace trim, platform boots with buckles and gold studs, gothic bracelets, beauty mark, blush marks, pouty red lips. Most visually detailed agent.
 - **Station**: Bottom-left (15%, 65%)
 - **Work Animation**: Thinker — face reddens over time (fillCircle with increasing alpha), sweat particle emitter speeds up
-- **Bubble Behavior**: Escalating cosmic contemplation ("thinking..." → "the code sees me" → "stack overflow in my spirit" → "(astral compiling)")
+- **Bubble Behavior**: Bubbly work trance with amnesia flickers ("hmmm~♡" → "the code is cute~" → "a notebook...?" → "who was he?" → "(typing intensifies♡)")
 - **Bubble Position**: Offset FAR RIGHT when at station (bx = ax + 40) so sweat/redness animation remains visible. Tail anchored at left edge of bubble.
-- **Whip Cry**: Calm philosophical acceptance
+- **Whip Cry**: Default cries (shared pool)
 
 ### Agent 4 — رشيد / Rashid (Gold)
 - **Color**: #ccaa40 / RGB(204,170,64)
@@ -97,11 +98,11 @@ Persona format: 1-2 lines of flavor at response start, then competent work. The 
 ### Station Positions (fraction of room W/H)
 - Igor: (0.15, 0.30) — top-left
 - Elon: (0.85, 0.30) — top-right
-- Vladimir: (0.15, 0.65) — bottom-left
+- Misa: (0.15, 0.65) — bottom-left
 - Rashid: (0.85, 0.65) — bottom-right
 
 ### Sleep Positions
 - Igor: (w*0.78, h*0.85)
 - Elon: (w*0.83, h*0.85)
-- Vladimir: (w*0.88, h*0.85)
+- Misa: (w*0.88, h*0.85)
 - Rashid: (w*0.93, h*0.85)

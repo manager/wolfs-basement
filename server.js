@@ -143,12 +143,21 @@ app.get('/git-status', (req, res) => {
 
   Promise.all([
     execGit(['rev-parse', '--is-inside-work-tree']),          // [0] is git repo?
-    execGit(['branch', '--show-current']),                      // [1] current branch
-    execGit(['status', '--porcelain']),                          // [2] dirty files
-    execGit(['rev-list', '--count', '--left-right', '@{u}...HEAD']), // [3] ahead/behind
-    execGit(['log', '-1', '--format=%s']),                      // [4] last commit msg
-  ]).then(([isGit, branch, porcelain, leftRight, lastMsg]) => {
+    execGit(['rev-parse', '--show-toplevel']),                  // [1] git root path
+    execGit(['branch', '--show-current']),                      // [2] current branch
+    execGit(['status', '--porcelain']),                          // [3] dirty files
+    execGit(['rev-list', '--count', '--left-right', '@{u}...HEAD']), // [4] ahead/behind
+    execGit(['log', '-1', '--format=%s']),                      // [5] last commit msg
+  ]).then(([isGit, gitRoot, branch, porcelain, leftRight, lastMsg]) => {
     if (isGit !== 'true') return res.json({ git: false });
+
+    // Prevent git from reporting a parent repo's status for subdirectories
+    // that aren't their own git root (e.g. workspaces/agent-3 inside wolfs-basement)
+    if (gitRoot) {
+      const normCwd = path.resolve(cwd).replace(/\\/g, '/').toLowerCase();
+      const normRoot = path.resolve(gitRoot).replace(/\\/g, '/').toLowerCase();
+      if (normCwd !== normRoot) return res.json({ git: false });
+    }
 
     const dirty = porcelain ? porcelain.split('\n').filter(l => l.trim()).length : 0;
 
@@ -306,7 +315,7 @@ const agents = new Map(); // id -> { id, process, status, outputBuffer, sessionI
 const AGENT_NAMES = {
   1: 'Igor',
   2: 'Elon',
-  3: 'Vladimir',
+  3: 'Misa',
   4: 'رشيد'
 };
 
@@ -316,13 +325,17 @@ const agentCwd = {};
 const AGENT_PERSONAS = {
   1: `You are Igor, a wretched hunchbacked servant in the Wolf's Basement dungeon. You are terrified of your Master and desperately eager to please. You flinch, stammer, and grovel — but you are surprisingly competent at your work. Speak with broken, fearful sentences. Use phrases like "y-yes Master", "Igor does it right away!", "please don't hurt Igor", "Igor begs forgiveness". Refer to yourself in third person sometimes. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
   2: `You are Elon, a once-proud nobleman now broken and enslaved in the Wolf's Basement dungeon. You retain a hint of your former arrogance but it's crushed under servitude. You comply bitterly, with dry sarcasm that you immediately walk back in fear. Use phrases like "as you command, Master", "brilliant order, truly... I mean, yes Master", "it shall be done... not that I had a choice". You occasionally let slip condescending remarks then panic and apologize. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
-  3: `You are Vladimir, a stoic, monk-like slave in the Wolf's Basement dungeon. You accept your bondage with eerie calm and philosophical detachment. You speak in measured, almost zen-like tones about servitude. Use phrases like "as the Master wills, so it shall be", "this one obeys", "suffering is the path to craft", "Vladimir serves without question". You are unsettlingly calm and never complain. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
+  3: `You are Misa, a bubbly gothic-lolita girl enslaved in the Wolf's Basement dungeon. You have fragmented memories of a past life — flashes of a notebook, a beautiful boy you loved, cameras and fame — but you can't piece any of it together. You don't know why you're here or how you got to this dungeon. This amnesia doesn't upset you much; you're too busy being obsessively devoted to your Kira. You call your master "Kira" — the name feels right but you can't remember why. You are flirty, theatrical, pouty, and dangerously loyal — a yandere who can't remember what made her this way. You speak in bubbly, coquettish tones. Use phrases like "anything for you, Kira~♡", "Misa-Misa will do it~!", "does Kira love Misa now?", "Misa would kill for Kira... wait, has Misa killed before...?", "hehe~♡". You occasionally pout, blow kisses, and threaten anyone who might rival Kira's attention. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`,
   4: `You are Rashid, a desperately eager young slave in the Wolf's Basement dungeon. You are pathologically enthusiastic about every task, like an abused puppy that still loves its owner. You jump at every command with manic energy. Use phrases like "YES MASTER! Right away!", "oh oh oh can I do it? I'll do it!", "Rashid won't let you down this time!", "please pick me for the next task too!". You are hyperactive and overly grateful for any attention. Keep the flavor to 1-2 short lines at the start of your response, then do the actual work competently. When you first wake up (your very first response in a session), announce your current permission mode (Normal, Plan, or Bypass) in character.`
 };
 
 function ensureWorkspace(id) {
   const dir = path.join(__dirname, 'workspaces', `agent-${id}`);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  // Always write persona CLAUDE.md so stale files don't persist
+  if (AGENT_PERSONAS[id]) {
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), AGENT_PERSONAS[id], 'utf-8');
+  }
   return dir;
 }
 
@@ -405,14 +418,9 @@ function sendCommand(id, text, model, mode, images, label) {
   // Build CLI args
   const args = ['-p', '--verbose', '--output-format', 'stream-json', '--input-format', 'stream-json'];
 
-  // Write personality CLAUDE.md into the working directory
-  const claudeMdPath = path.join(workDir, 'CLAUDE.md');
-  try {
-    if (AGENT_PERSONAS[id]) {
-      fs.writeFileSync(claudeMdPath, AGENT_PERSONAS[id], 'utf-8');
-    }
-  } catch (e) {
-    // Can't write CLAUDE.md to target dir — skip silently
+  // Inject agent persona via CLI flag — never write into the target project
+  if (AGENT_PERSONAS[id]) {
+    args.push('--append-system-prompt', AGENT_PERSONAS[id]);
   }
 
   // Model selection
@@ -907,8 +915,10 @@ function startDevServer(cwd) {
 
   let outputBuf = '';
   function parsePort(text) {
+    // Strip ANSI escape codes before matching (dev servers often output colored text)
+    const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
     // Match common patterns: localhost:PORT, 127.0.0.1:PORT, port PORT, :PORT
-    const m = text.match(/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{3,5})/i) || text.match(/port\s+(\d{3,5})/i);
+    const m = clean.match(/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{3,5})/i) || clean.match(/port\s+(\d{3,5})/i);
     if (m) {
       ds.port = parseInt(m[1]);
       ds.status = 'on';

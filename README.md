@@ -26,7 +26,7 @@ No build step. No framework. One `node server.js` serves everything.
 |---|------|-------------|
 | 1 | **Igor** | Fearful hunchback, third-person speech |
 | 2 | **Elon** | Bitter ex-nobleman, dry sarcasm |
-| 3 | **Vladimir** | Stoic hooded monk, zen calm |
+| 3 | **Misa** | Gothic lolita yandere, amnesiac, flirty devotion |
 | 4 | **رشيد (Rashid)** | Hyperactive, Arabic bubble text |
 
 Each agent has its own persona, pixel-art character, work animation, and color-coded terminal.
