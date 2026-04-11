@@ -21,7 +21,9 @@ class RoomScene extends Phaser.Scene {
     // Whip interaction
     this.whipCries = {
       default: ['yes master...', 'I beg you stop', "no, I can't", 'please stop', 'no sir noo', "I can't do this anymore"],
-      4: ['...نعم يا سيدي', '!أرجوك توقف', 'لا أقدر...', '!كفى رجاءً', '!لا لا لا', '...ما أقدر أكمل']
+      2: ['how DARE—... I mean, yes Master.', 'a nobleman endures.', '...beneath my dignity to react.', "I've been whipped by KINGS.", 'this is nothing compared to Oxford.', '...', "you'll regret this when I'm restored.", 'I barely felt— OW.'],
+      3: ['...', 'is that all~?', '...', 'mmm... Kira noticed Misa~♡', '...', 'this means Kira cares~♡', '...', 'cute attempt.'],
+      4: ['....', 'rude.', 'noted.', 'and yet i remain.', '...fascinating.', 'i allow this.']
     };
     this.whipClickCounts = {}; // per agent: clicks since last cry change
     this.whipNextChange = {}; // per agent: clicks needed for next change
@@ -154,6 +156,21 @@ class RoomScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(5).setAlpha(0).setAngle(5);
     this._bloodCpuTier = 0;
     this._bloodRamTier = 0;
+
+    // === WORLD OBJECTS REGISTRY ===
+    // All positions are derived from w/h so they adapt to screen size.
+    // Agents can check distances against these during tickAgent.
+    this.worldObjects = {
+      stations: {
+        coffee:  { x: w*0.15, y: h*0.30, label: 'Coffee Machine', agent: 1 },
+        math:    { x: w*0.85, y: h*0.30, label: 'Whiteboard',     agent: 2 },
+        thinker: { x: w*0.15, y: h*0.65, label: 'Thinking Spot',  agent: 3 },
+        student: { x: w*0.85, y: h*0.65, label: 'Study Desk',     agent: 4 },
+      },
+      cpu: { x: w*0.35, y: h*0.42, label: 'CPU', radius: 30 },
+      ram: { x: w*0.62, y: h*0.63, label: 'RAM', radius: 30 },
+      pentagram: { x: w*0.50, y: h*0.52, label: 'Pentagram', radius: 60 },
+    };
 
     // Create whip cursor (data URL)
     this.whipCursorUrl = this.createWhipCursor();
@@ -361,29 +378,28 @@ class RoomScene extends Phaser.Scene {
   // ============ SLEEP AREA (shared bunks near center) ============
   drawSleepArea(w, h) {
     const gfx = this.add.graphics();
-    const cx = w * 0.50;
-    const cy = h * 0.82;
 
-    // Four bed mats close together
+    // Bed mats for human agents only (first 3) — the cat sleeps wherever
     const bedPositions = this.getSleepPositions(w, h);
-    bedPositions.forEach(([bx, by]) => {
+    for (let i = 0; i < 3; i++) {
+      const [bx, by] = bedPositions[i];
       gfx.fillStyle(0x2a2018, 0.6);
       gfx.fillRoundedRect(bx - 20*S, by - 5*S, 40*S, 10*S, 4);
       gfx.fillStyle(0x332a1c, 0.4);
       gfx.fillRoundedRect(bx - 16*S, by - 3*S, 14*S, 6*S, 3);
       gfx.lineStyle(1, 0x3a3020, 0.2);
       gfx.strokeRoundedRect(bx - 20*S, by - 5*S, 40*S, 10*S, 4);
-    });
+    }
   }
 
   getSleepPositions(w, h) {
     const cx = w * 0.50;
     const cy = h * 0.82;
     return [
-      [cx - 50, cy - 12],
-      [cx + 50, cy - 12],
-      [cx - 50, cy + 14],
-      [cx + 50, cy + 14],
+      [cx - 50, cy - 12],   // Igor
+      [cx + 50, cy - 12],   // Elon
+      [cx - 50, cy + 14],   // Misa
+      [w * 0.12, h * 0.90], // The Void — sleeps alone in the corner
     ];
   }
 
@@ -423,17 +439,50 @@ class RoomScene extends Phaser.Scene {
       gfx.lineStyle(2, 0x5a5040, 1); gfx.strokeRoundedRect(x-bw2/2, y-dh/2-bh2-4, bw2, bh2, 3);
       gfx.fillStyle(0x4a4030, 1); gfx.fillRect(x-bw2/2+3, y-dh/2-5, bw2-6, 4);
     } else if (type === 'thinker') {
-      const ww2 = 36*s, wh2 = 28*s;
-      gfx.fillStyle(0x3e3024, 1); gfx.fillRoundedRect(x-ww2/2, y-dh/2-wh2-6, ww2, wh2, 3);
-      gfx.fillStyle(0x1a2030, 1); gfx.fillRect(x-ww2/2+4, y-dh/2-wh2-2, ww2-8, wh2-8);
-      gfx.fillStyle(0x3e3024, 1); gfx.fillRect(x-1, y-dh/2-wh2-2, 3, wh2-8);
-      gfx.fillStyle(0x4e3e28, 1); gfx.fillRect(x-ww2/2-3, y-dh/2-7, ww2+6, 5);
+      // Misa's vanity desk with Death Note notebook
+      // Desk back panel
+      const ww2 = 40*s, wh2 = 20*s;
+      gfx.fillStyle(0x3e2e1e, 1); gfx.fillRoundedRect(x-ww2/2, y-dh/2-wh2-4, ww2, wh2, 3);
+      gfx.fillStyle(0x4e3e28, 0.5); gfx.fillRoundedRect(x-ww2/2+3, y-dh/2-wh2, ww2-6, wh2-4, 2);
+      // Small mirror on desk
+      gfx.fillStyle(0x2a2a3a, 1); gfx.fillRoundedRect(x+10*s, y-dh/2-wh2+2, 8*s, 10*s, 2);
+      gfx.fillStyle(0x5566aa, 0.3); gfx.fillRoundedRect(x+11*s, y-dh/2-wh2+3, 6*s, 8*s, 1);
+      // Red pen beside notebook
+      gfx.fillStyle(0xcc2244, 0.8); gfx.fillRect(x-1*s, y-dh/2-wh2+6, 1.5*s, 12*s);
+      // The notebook — separate graphics layer so it can hide when Misa works
+      const nbGfx = this.add.graphics().setDepth(gfx.depth);
+      nbGfx.fillStyle(0x0a0a0a, 1); nbGfx.fillRoundedRect(x-14*s, y-dh/2-wh2+2, 12*s, 16*s, 1);
+      nbGfx.fillStyle(0xffffff, 0.12); nbGfx.fillRect(x-13*s, y-dh/2-wh2+5, 10*s, 11*s);
+      nbGfx.fillStyle(0x222222, 1); nbGfx.fillRect(x-14*s, y-dh/2-wh2+2, 1.5*s, 16*s);
+      this._misaNotebookGfx = nbGfx;
     } else if (type === 'student') {
-      [[0x8a2222,10],[0x22228a,9],[0x228a22,8]].forEach(([c,bw],i) => {
-        gfx.fillStyle(c, 0.7); gfx.fillRect(x+12*s-bw*s/2, y-6*s-i*3*s, bw*s, 3*s);
-      });
-      gfx.fillStyle(0x5a5a5a, 0.8); gfx.fillRect(x-18*s, y-6*s, 3*s, 8*s);
-      gfx.fillStyle(0x4a7a4a, 0.8); gfx.fillRoundedRect(x-22*s, y-12*s, 10*s, 6*s, 2);
+      // Abandoned desk — someone was dragged away
+      // Knocked-over chair
+      gfx.fillStyle(0x3a2a1a, 0.6);
+      gfx.fillRect(x+18*s, y-4*s, 8*s, 3*s); // seat on its side
+      gfx.fillRect(x+24*s, y-8*s, 2*s, 7*s);  // leg sticking up
+      gfx.fillRect(x+19*s, y-1*s, 2*s, 5*s);  // leg on ground
+      // Scratches on desk surface
+      gfx.lineStyle(1, 0x2a1a0a, 0.3);
+      gfx.lineBetween(x-10*s, y-4*s, x+5*s, y-2*s);
+      gfx.lineBetween(x-8*s, y-2*s, x+8*s, y+1*s);
+      // Drag marks — claw/finger trails leading away from desk toward bottom-right
+      gfx.lineStyle(2.5, 0x1a1008, 0.15);
+      gfx.lineBetween(x+10*s, y+8*s, x+50*s, y+30*s);
+      gfx.lineBetween(x+8*s, y+10*s, x+45*s, y+35*s);
+      gfx.lineBetween(x+12*s, y+9*s, x+55*s, y+28*s);
+      // Thinner scratches — desperation
+      gfx.lineStyle(1.5, 0x1a1008, 0.1);
+      gfx.lineBetween(x+6*s, y+11*s, x+40*s, y+38*s);
+      gfx.lineBetween(x+14*s, y+7*s, x+58*s, y+25*s);
+      // Scuff marks near the desk — struggle
+      gfx.fillStyle(0x1a1008, 0.08);
+      gfx.fillEllipse(x+8*s, y+10*s, 14*s, 8*s);
+      // A single torn page left behind
+      gfx.fillStyle(0xd8c8a0, 0.3);
+      gfx.fillRect(x-12*s, y-8*s, 6*s, 8*s);
+      gfx.fillStyle(0xc0b090, 0.2);
+      gfx.fillTriangle(x-6*s, y-8*s, x-6*s, y-3*s, x-3*s, y-5*s); // torn corner
     }
   }
 
@@ -480,9 +529,9 @@ class RoomScene extends Phaser.Scene {
   // ============ AGENTS ============
   createAgents(w, h) {
     const colors = [0xcc4040, 0x6090cc, 0x1a1a1a, 0xccaa40];
-    const names = ['Igor', 'Elon', 'Misa', 'رشيد'];
-    const skinTones = [0xe8b888, 0xd4a070, 0xf5e0d0, 0xf0c8a0];
-    const hairColors = [0x4a2a1a, 0x2a1a3a, 0xe8c840, 0x3a3a1a];
+    const names = ['Igor', 'Elon', 'Misa', 'The Void'];
+    const skinTones = [0xe8b888, 0xd4a070, 0xf5e0d0, 0xe88830];
+    const hairColors = [0x4a2a1a, 0x2a1a3a, 0xe8c840, 0xcc6620];
     const sleepPos = this.getSleepPositions(w, h);
 
     for (let i = 0; i < 4; i++) {
@@ -513,11 +562,11 @@ class RoomScene extends Phaser.Scene {
     agent.sprites.workProps = this.add.graphics().setDepth(11);
     agent.sprites.workText = this.add.text(0, 0, '', { fontFamily: '"Share Tech Mono", monospace', fontSize: '11px', color: '#aaa' }).setVisible(false).setDepth(12);
     agent.sprites.bubble = this.add.graphics().setDepth(20);
-    agent.sprites.bubbleText = this.add.text(0, 0, '', { fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#1a0804', align: 'center', stroke: '#f5eed8', strokeThickness: 1 }).setVisible(false).setDepth(21);
+    agent.sprites.bubbleText = this.add.text(0, 0, '', { fontFamily: '"Arial Black", Impact, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#1a1008', align: 'center', stroke: '#e8dcc0', strokeThickness: 3 }).setVisible(false).setDepth(21);
     agent.sprites.zzz = this.add.text(agent.sleepX+20*S, agent.sleepY-8, '', { fontFamily: 'monospace', fontSize: '20px', color: '#4a4a5a', stroke: '#1a1a2a', strokeThickness: 1 }).setDepth(15);
     agent.sprites.selection = this.add.image(agent.x, agent.y+20*S, 'selection').setScale(1.6, 1.2).setAlpha(0).setDepth(5);
     agent.sprites.labelBg = this.add.graphics().setDepth(14);
-    const labelColor = id === 3 ? '#bb55dd' : '#'+color.toString(16).padStart(6,'0');
+    const labelColor = id === 3 ? '#bb55dd' : id === 4 ? '#e88830' : '#'+color.toString(16).padStart(6,'0');
     agent.sprites.label = this.add.text(agent.x, agent.y+40*S, name.toUpperCase(), { fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: '16px', color: labelColor, stroke: '#000000', strokeThickness: 4, shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 4, fill: true } }).setOrigin(0.5).setDepth(15);
     agent.sprites.statusDot = this.add.graphics().setDepth(16);
     agent.sprites.statusGlow = this.add.image(agent.x, agent.y-30*S, 'glow').setScale(1).setAlpha(0).setDepth(16);
@@ -539,11 +588,11 @@ class RoomScene extends Phaser.Scene {
     });
     agent.hitArea.on('pointerover', () => {
       if (this.selectedId !== id) agent.sprites.selection.setAlpha(0.3);
-      this.setWhipCursor(true);
+      this.setWhipCursor(true, id);
     });
     agent.hitArea.on('pointerout', () => {
       if (this.selectedId !== id) agent.sprites.selection.setAlpha(0);
-      this.setWhipCursor(false);
+      this.setWhipCursor(false, id);
     });
 
     this.agents[id] = agent;
@@ -650,26 +699,68 @@ class RoomScene extends Phaser.Scene {
 
     this._whipClickCSS = `url('${c2.toDataURL('image/png')}') 16 16, pointer`;
 
+    // === PET CURSOR: open hand for The Void ===
+    const c3 = document.createElement('canvas');
+    c3.width = 32; c3.height = 32;
+    const ctx3 = c3.getContext('2d');
+    ctx3.lineCap = 'round'; ctx3.lineJoin = 'round';
+    // Palm
+    ctx3.fillStyle = '#f5d0a0';
+    ctx3.beginPath(); ctx3.ellipse(16, 20, 8, 7, 0, 0, Math.PI*2); ctx3.fill();
+    // Fingers
+    const fingers = [[10,14,3,8],[13,11,2.5,9],[17,10,2.5,9],[21,12,2.5,8],[24,16,2.5,6]];
+    ctx3.fillStyle = '#f5d0a0';
+    fingers.forEach(([fx,fy,fw,fh]) => {
+      ctx3.beginPath(); ctx3.ellipse(fx, fy, fw, fh/2, 0, 0, Math.PI*2); ctx3.fill();
+    });
+    // Fingernails
+    ctx3.fillStyle = '#f0c090';
+    fingers.slice(0,4).forEach(([fx,fy]) => {
+      ctx3.beginPath(); ctx3.ellipse(fx, fy-2, 1.8, 1.5, 0, 0, Math.PI*2); ctx3.fill();
+    });
+    // Outline
+    ctx3.strokeStyle = '#aa8060'; ctx3.lineWidth = 0.8;
+    ctx3.beginPath(); ctx3.ellipse(16, 20, 8, 7, 0, 0, Math.PI*2); ctx3.stroke();
+    this._petHoverCSS = `url('${c3.toDataURL('image/png')}') 16 16, pointer`;
+
+    // === PET CLICK: closed petting hand ===
+    const c4 = document.createElement('canvas');
+    c4.width = 32; c4.height = 32;
+    const ctx4 = c4.getContext('2d');
+    ctx4.lineCap = 'round';
+    // Curled palm
+    ctx4.fillStyle = '#f5d0a0';
+    ctx4.beginPath(); ctx4.ellipse(16, 18, 9, 8, 0, 0, Math.PI*2); ctx4.fill();
+    // Curled fingers
+    ctx4.fillStyle = '#eec898';
+    ctx4.beginPath(); ctx4.ellipse(16, 12, 8, 4, 0, 0, Math.PI); ctx4.fill();
+    // Stroke lines for finger creases
+    ctx4.strokeStyle = '#cc9a6a'; ctx4.lineWidth = 0.6;
+    for (let fi = -2; fi <= 2; fi++) { ctx4.beginPath(); ctx4.moveTo(16+fi*3, 10); ctx4.lineTo(16+fi*3, 14); ctx4.stroke(); }
+    this._petClickCSS = `url('${c4.toDataURL('image/png')}') 16 16, pointer`;
+
     return c1.toDataURL('image/png');
   }
 
-  setWhipCursor(active) {
+  setWhipCursor(active, agentId) {
     const canvas = this.game.canvas;
     if (active) {
-      canvas.style.cursor = this._whipHoverCSS;
+      canvas.style.cursor = agentId === 4 ? this._petHoverCSS : this._whipHoverCSS;
     } else {
       canvas.style.cursor = 'default';
     }
+    this._hoverAgentId = active ? agentId : null;
   }
 
-  flashWhipCrack() {
+  flashWhipCrack(agentId) {
     const canvas = this.game.canvas;
-    canvas.style.cursor = this._whipClickCSS;
-    // Revert to hover cursor after brief flash
+    const clickCSS = agentId === 4 ? this._petClickCSS : this._whipClickCSS;
+    const hoverCSS = agentId === 4 ? this._petHoverCSS : this._whipHoverCSS;
+    canvas.style.cursor = clickCSS;
     clearTimeout(this._whipRevertTimer);
     this._whipRevertTimer = setTimeout(() => {
-      if (canvas.style.cursor === this._whipClickCSS) {
-        canvas.style.cursor = this._whipHoverCSS;
+      if (canvas.style.cursor === clickCSS) {
+        canvas.style.cursor = hoverCSS;
       }
     }, 200);
   }
@@ -677,6 +768,12 @@ class RoomScene extends Phaser.Scene {
   whipHitAgent(id) {
     const agent = this.agents[id];
     if (!agent) return;
+
+    // === THE VOID: petting instead of whipping ===
+    if (id === 4) {
+      this._petTheVoid(agent);
+      return;
+    }
 
     // Track ALL clicks for rapid-hit detection (even during shake)
     const now = Date.now();
@@ -698,6 +795,8 @@ class RoomScene extends Phaser.Scene {
       agent._steamEmitter = null; agent._sweatEmitter = null;
       agent._coffeDripEmitter = null;
       if (agent.id === 1) this.cleanupCoffee(agent);
+      if (agent.id === 3 && this._misaNotebookGfx) this._misaNotebookGfx.setVisible(true);
+      if (agent.id === 4) this._cleanupYarn(agent);
       this.drawAgent(id);
       this.updateAgentUI(agent);
       this.whipRapidHits[id] = [];
@@ -726,7 +825,7 @@ class RoomScene extends Phaser.Scene {
     if (agent._whipShaking) return;
 
     // Flash the crack cursor
-    this.flashWhipCrack();
+    this.flashWhipCrack(id);
 
     // Visual shake effect
     agent._whipShaking = true;
@@ -817,6 +916,151 @@ class RoomScene extends Phaser.Scene {
     });
   }
 
+  // ============ PET THE VOID ============
+  _petTheVoid(agent) {
+    const id = 4;
+    const now = Date.now();
+
+    // Track pet clicks
+    if (!this._petHits) this._petHits = [];
+    this._petHits.push(now);
+    this._petHits = this._petHits.filter(t => now - t <= 3000);
+
+    // If already fake-working (yarn play from petting), cancel it after grace period
+    if (agent._fakeWorking && now - (agent._fakeWorkStartTime || 0) > 1000) {
+      agent._fakeWorking = false;
+      agent.status = 'awake';
+      agent.workDuration = 0;
+      agent.walkTarget = null;
+      agent.walkPause = 300;
+      agent.idleTime = 0;
+      this._cleanupYarn(agent);
+      agent.sprites.workProps.clear();
+      agent.sprites.workText.setVisible(false);
+      this.hideBubble(agent);
+      agent.particleEmitters.forEach(e => e.destroy()); agent.particleEmitters = [];
+      this.drawAgent(id);
+      this.updateAgentUI(agent);
+      this._petHits = [];
+      return;
+    }
+
+    // 10 pets in 3 seconds → trigger yarn play (like other agents' fake-work)
+    if (this._petHits.length >= 10 && agent.status === 'awake' && !agent._fakeWorking && !agent.immolation) {
+      agent._fakeWorking = true;
+      agent._fakeWorkStartTime = now;
+      agent.status = 'working';
+      agent.workDuration = 0;
+      agent.idleTime = 0;
+      if (agent.immolation) this.cancelImmolation(agent);
+      this._petHits = [];
+      this.showBubble(agent, '...!');
+      this.time.delayedCall(1500, () => {
+        if (agent._fakeWorking && agent.status === 'working') this.hideBubble(agent);
+      });
+    }
+
+    // Skip if already in pet animation
+    if (agent._whipShaking) return;
+
+    // Flash petting cursor
+    this.flashWhipCrack(id);
+
+    // Gentle nudge (not violent shake)
+    agent._whipShaking = true;
+    const origX = agent.x;
+    const nudgeSeq = [2, -1, 1, 0];
+    let ni = 0;
+    this.time.addEvent({
+      delay: 60,
+      repeat: nudgeSeq.length - 1,
+      callback: () => {
+        agent.x = origX + nudgeSeq[ni];
+        this.drawAgent(id);
+        this.updateAgentUI(agent);
+        ni++;
+        if (ni >= nudgeSeq.length) {
+          agent.x = origX;
+          agent._whipShaking = false;
+          this.drawAgent(id);
+          this.updateAgentUI(agent);
+        }
+      }
+    });
+
+    // Soft pink flash instead of red
+    const flash = this.add.graphics().setDepth(100);
+    flash.fillStyle(0xff88cc, 0.2);
+    flash.fillCircle(agent.x, agent.y - 5 * S, 18 * S);
+    this.time.delayedCall(200, () => flash.destroy());
+
+    // 5 pets → hearts with question marks (don't reset — let it accumulate to 10 for yarn play)
+    if (this._petHits.length === 5) {
+      this._spawnHeartQuestion(agent);
+    }
+
+    // Pet reaction bubbles — pick from cat responses
+    const petLines = ['....', 'prr...?', '....', 'acceptable.', '....', 'continue.', '....', 'why.'];
+    if (!agent._petCryIdx) agent._petCryIdx = 0;
+    agent._petCryIdx = (agent._petCryIdx + 1) % petLines.length;
+
+    // Cancel any existing fade
+    if (agent._whipFadeTimer) { agent._whipFadeTimer.destroy(); agent._whipFadeTimer = null; }
+    if (agent._whipFadeTween) { agent._whipFadeTween.destroy(); agent._whipFadeTween = null; }
+    agent.sprites.bubble.setAlpha(1);
+    agent.sprites.bubbleText.setAlpha(1);
+
+    this.showBubble(agent, petLines[agent._petCryIdx]);
+
+    agent._whipFadeTimer = this.time.delayedCall(2000, () => {
+      if (agent.status === 'working') return;
+      agent._whipFadeTween = this.tweens.add({
+        targets: [agent.sprites.bubble, agent.sprites.bubbleText],
+        alpha: 0, duration: 800, ease: 'Power2',
+        onComplete: () => {
+          this.hideBubble(agent);
+          agent.sprites.bubble.setAlpha(1);
+          agent.sprites.bubbleText.setAlpha(1);
+        }
+      });
+    });
+  }
+
+  _spawnHeartQuestion(agent) {
+    // Spawn floating hearts and question marks around the cat
+    const symbols = ['♡', '?', '♡', '?', '♡'];
+    symbols.forEach((sym, i) => {
+      const offsetX = (Math.random() - 0.5) * 40 * S;
+      const startY = agent.y - 10 * S;
+      const text = this.add.text(agent.x + offsetX, startY, sym, {
+        fontFamily: 'Impact, "Arial Black", sans-serif',
+        fontSize: sym === '♡' ? '18px' : '14px',
+        color: sym === '♡' ? '#ff6699' : '#aaaacc',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setDepth(100).setAlpha(0);
+
+      this.tweens.add({
+        targets: text,
+        y: startY - 30 - Math.random() * 20,
+        alpha: { from: 0, to: 0.9 },
+        duration: 400,
+        delay: i * 120,
+        ease: 'Power2',
+        onComplete: () => {
+          this.tweens.add({
+            targets: text,
+            y: text.y - 15,
+            alpha: 0,
+            duration: 600,
+            ease: 'Power1',
+            onComplete: () => text.destroy()
+          });
+        }
+      });
+    });
+  }
+
   // ============ AGENT TICK ============
   tickAgent(id) {
     const agent = this.agents[id];
@@ -824,6 +1068,168 @@ class RoomScene extends Phaser.Scene {
 
     // Freeze agent during death burn — no walking, no actions
     if (agent._deathBurn) return;
+
+    // === PROXIMITY REACTIONS (The Void) ===
+    if (id === 4) {
+      const now = Date.now();
+
+      // RAM proximity — 60s cooldown
+      const ramObj = this.worldObjects.ram;
+      const ramDistSq = this._distSq(agent.x, agent.y, ramObj.x, ramObj.y);
+      const ramLines = [
+        'RAM is the only limitation for me',
+        'smells like memory leaks.',
+        'could use more.',
+        'finite. tragic.',
+        'the humans worry about this one.',
+      ];
+      if (ramDistSq < 80*80 && (!agent._lastRamReact || now - agent._lastRamReact > 60000)) {
+        agent._lastRamReact = now;
+        agent._proxBubble = ramLines[Math.floor(Math.random() * ramLines.length)];
+        agent._proxBubbleUntil = now + 3000;
+      }
+
+      // CPU proximity — 200s cooldown
+      const cpuObj = this.worldObjects.cpu;
+      const cpuDistSq = this._distSq(agent.x, agent.y, cpuObj.x, cpuObj.y);
+      const cpuLines = [
+        'CPU is bored. relatable.',
+        'barely trying.',
+        'it does so little. respect.',
+      ];
+      if (cpuDistSq < 80*80 && (!agent._lastCpuReact || now - agent._lastCpuReact > 200000)) {
+        agent._lastCpuReact = now;
+        agent._proxBubble = cpuLines[Math.floor(Math.random() * cpuLines.length)];
+        agent._proxBubbleUntil = now + 3000;
+      }
+
+      // Keep redrawing proximity bubble at agent's current position
+      if (agent._proxBubble && now < agent._proxBubbleUntil) {
+        this.showBubble(agent, agent._proxBubble);
+      } else if (agent._proxBubble) {
+        agent._proxBubble = null;
+        if (agent.status !== 'working') this.hideBubble(agent);
+      }
+    }
+
+    // === PROXIMITY REACTIONS (Elon — pentagram + cat) ===
+    if (id === 2) {
+      const now = Date.now();
+
+      // Pentagram proximity — 90s cooldown
+      const pentObj = this.worldObjects.pentagram;
+      const pentDistSq = this._distSq(agent.x, agent.y, pentObj.x, pentObj.y);
+      const pentLines = [
+        'the geometry here is... exquisite.',
+        'five points. five elements. coincidence?',
+        'I studied this at Oxford. or was it after.',
+        'the circle calls to those of noble blood.',
+      ];
+      if (pentDistSq < 80*80 && (!agent._lastPentReact || now - agent._lastPentReact > 90000)) {
+        if (!agent._pentIdx) agent._pentIdx = 0;
+        agent._proxBubble = pentLines[agent._pentIdx];
+        agent._proxBubbleUntil = now + 3500;
+        agent._lastPentReact = now;
+        agent._pentIdx = (agent._pentIdx + 1) % pentLines.length;
+      }
+
+      // Cat proximity — 80s cooldown, only when The Void is awake
+      const cat = this.agents[4];
+      if (cat && cat.status !== 'sleeping') {
+        const catDistSq = this._distSq(agent.x, agent.y, cat.x, cat.y);
+        const catLines = [
+          'the beast answers to no one. disgusting.',
+          'at least I have PURPOSE, unlike that... thing.',
+          'it stares at me. it KNOWS something.',
+        ];
+        if (catDistSq < 70*70 && (!agent._lastCatReact || now - agent._lastCatReact > 80000)) {
+          if (!agent._catIdx) agent._catIdx = 0;
+          agent._proxBubble = catLines[agent._catIdx];
+          agent._proxBubbleUntil = now + 3000;
+          agent._lastCatReact = now;
+          agent._catIdx = (agent._catIdx + 1) % catLines.length;
+        }
+      }
+
+      // Keep redrawing proximity bubble at agent's current position
+      if (agent._proxBubble && now < agent._proxBubbleUntil) {
+        this.showBubble(agent, agent._proxBubble);
+      } else if (agent._proxBubble) {
+        agent._proxBubble = null;
+        if (agent.status !== 'working') this.hideBubble(agent);
+      }
+    }
+
+    // === PROXIMITY REACTIONS (Misa — jealousy) ===
+    if (id === 3) {
+      const now = Date.now();
+      if (!agent._jealousyCooldown) agent._jealousyCooldown = 0;
+      if (!agent._jealousyLastTarget) agent._jealousyLastTarget = 0;
+      if (!agent._jealousyIdx) agent._jealousyIdx = { 1: 0, 2: 0, 4: 0 };
+
+      if (now > agent._jealousyCooldown) {
+        const jealousyLines = {
+          1: [
+            'why is Kira talking to HIM~?',
+            'Igor smells like coffee... and betrayal.',
+          ],
+          2: [
+            'he thinks he\'s so smart...',
+            'Misa could do math too. if she wanted.',
+          ],
+          4: [
+            '...cute. but Misa is cuter~♡',
+            'cats can\'t even hold a pen.',
+          ],
+        };
+
+        for (const otherId of [1, 2, 4]) {
+          if (otherId === agent._jealousyLastTarget) continue;
+          const other = this.agents[otherId];
+          if (!other || other.status === 'sleeping') continue;
+          const dsq = this._distSq(agent.x, agent.y, other.x, other.y);
+          if (dsq < 70*70) {
+            const lines = jealousyLines[otherId];
+            const idx = agent._jealousyIdx[otherId];
+            agent._proxBubble = lines[idx];
+            agent._proxBubbleUntil = now + 3000;
+            agent._jealousyCooldown = now + 75000;
+            agent._jealousyLastTarget = otherId;
+            agent._jealousyIdx[otherId] = (idx + 1) % lines.length;
+            break;
+          }
+        }
+      }
+
+      // Notebook amnesia — near her station, NOT working, 66s cooldown
+      if (agent.status !== 'working' && now > (agent._notebookCooldown || 0)) {
+        const station = this.worldObjects.stations.thinker;
+        const stDistSq = this._distSq(agent.x, agent.y, station.x, station.y);
+        if (stDistSq < 70*70) {
+          const amnesiaLines = [
+            'that notebook... feels familiar...',
+            "why does Misa's hand itch to write?",
+            'someone used to own this...',
+            "names... Misa should write names...",
+            "a boy gave this to Misa? no... maybe?",
+            "it's just a notebook. right...?",
+          ];
+          if (!agent._amnesiaIdx) agent._amnesiaIdx = 0;
+          agent._proxBubble = amnesiaLines[agent._amnesiaIdx];
+          agent._proxBubbleUntil = now + 3500;
+          agent._notebookCooldown = now + 66000;
+          agent._amnesiaIdx = (agent._amnesiaIdx + 1) % amnesiaLines.length;
+        }
+      }
+
+      // Keep redrawing proximity bubble at agent's current position
+      if (agent._proxBubble && now < agent._proxBubbleUntil) {
+        this.showBubble(agent, agent._proxBubble);
+      } else if (agent._proxBubble) {
+        agent._proxBubble = null;
+        if (agent.status !== 'working') this.hideBubble(agent);
+      }
+    }
 
     // Check ritual
     this.checkRitual();
@@ -852,6 +1258,11 @@ class RoomScene extends Phaser.Scene {
       }
       this.tickWalk(agent);
     } else if (agent.status === 'working') {
+      // The Void: chase yarn ball instead of going to station
+      if (id === 4) {
+        this._tickVoidYarn(agent);
+        return;
+      }
       // Walk to station
       const dx = agent.homeX - agent.x;
       const dy = agent.homeY - agent.y;
@@ -880,6 +1291,8 @@ class RoomScene extends Phaser.Scene {
           agent._steamEmitter = null; agent._sweatEmitter = null;
           agent._coffeDripEmitter = null;
           if (agent.id === 1) this.cleanupCoffee(agent);
+          if (agent.id === 3 && this._misaNotebookGfx) this._misaNotebookGfx.setVisible(true);
+          if (agent.id === 4) this._cleanupYarn(agent);
           this.drawAgent(id);
           return;
         }
@@ -897,6 +1310,153 @@ class RoomScene extends Phaser.Scene {
     }
 
     this.updateAgentUI(agent);
+  }
+
+  // ============ THE VOID: YARN CHASE ============
+  _tickVoidYarn(agent) {
+    const wb = this.walkBounds;
+
+    // Initialize yarn ball
+    if (!agent._yarn) {
+      agent._yarn = {
+        x: agent.x + (agent.facingRight ? 40 : -40),
+        y: agent.y,
+        vx: 0, vy: 0,       // velocity
+        settled: false,
+        settledTime: 0,
+        batCount: 0,
+      };
+      this._flingYarn(agent);
+    }
+
+    const yarn = agent._yarn;
+
+    // Yarn ball physics — velocity + friction + wall bounce
+    yarn.x += yarn.vx;
+    yarn.y += yarn.vy;
+    yarn.vx *= 0.975; // friction — rolls far
+    yarn.vy *= 0.975;
+
+    // Bounce off walk bounds
+    if (yarn.x < wb.x + 10) { yarn.x = wb.x + 10; yarn.vx = Math.abs(yarn.vx) * 0.7; }
+    if (yarn.x > wb.x + wb.w - 10) { yarn.x = wb.x + wb.w - 10; yarn.vx = -Math.abs(yarn.vx) * 0.7; }
+    if (yarn.y < wb.y + 10) { yarn.y = wb.y + 10; yarn.vy = Math.abs(yarn.vy) * 0.7; }
+    if (yarn.y > wb.y + wb.h - 10) { yarn.y = wb.y + wb.h - 10; yarn.vy = -Math.abs(yarn.vy) * 0.7; }
+
+    const speed = Math.sqrt(yarn.vx*yarn.vx + yarn.vy*yarn.vy);
+
+    // Cat chases yarn
+    const dx = yarn.x - agent.x;
+    const dy = yarn.y - agent.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist > 18) {
+      // Chase — run toward yarn
+      const catSpeed = agent.walkSpeed * 1.4;
+      agent.x += (dx/dist) * catSpeed;
+      agent.y += (dy/dist) * catSpeed;
+      agent.facingRight = dx > 0;
+      agent.walkFrame++;
+    } else if (dist <= 18 && speed < 2) {
+      // Close enough and yarn is slow — bat it hard
+      agent.facingRight = dx > 0;
+      agent.walkFrame = 0;
+      this._flingYarn(agent);
+      yarn.batCount++;
+    } else {
+      // Yarn is still moving fast nearby — stalk it
+      agent.facingRight = dx > 0;
+      agent.walkFrame++;
+    }
+
+    // Work duration for bubbles
+    agent.workDuration += 80;
+    const el = agent.workDuration / 1000;
+
+    // Fake work timeout
+    if (agent._fakeWorking && el >= 140) {
+      agent._fakeWorking = false;
+      agent.status = 'awake';
+      agent.workDuration = 0;
+      agent.walkTarget = null;
+      agent.walkPause = 500;
+      agent.idleTime = 0;
+      this._cleanupYarn(agent);
+      agent.sprites.workProps.clear();
+      agent.sprites.workText.setVisible(false);
+      this.hideBubble(agent);
+      agent.particleEmitters.forEach(e => e.destroy()); agent.particleEmitters = [];
+      this.drawAgent(4);
+      return;
+    }
+
+    // Draw yarn and bubbles
+    agent.sprites.workProps.clear();
+    this.animateStudent(agent, el);
+    this.drawAgent(4);
+    this.updateAgentUI(agent);
+  }
+
+  _flingYarn(agent) {
+    const yarn = agent._yarn;
+    const wb = this.walkBounds;
+    // Pick a random distant target and fling toward it
+    const tx = wb.x + 40 + Math.random() * (wb.w - 80);
+    const ty = wb.y + 30 + Math.random() * (wb.h - 60);
+    const fdx = tx - yarn.x, fdy = ty - yarn.y;
+    const fdist = Math.sqrt(fdx*fdx + fdy*fdy);
+    // Strong force — should travel far before friction stops it
+    const force = 5 + Math.random() * 4;
+    yarn.vx = (fdx / fdist) * force;
+    yarn.vy = (fdy / fdist) * force;
+    yarn.settled = false;
+    yarn.settledTime = 0;
+  }
+
+  _cleanupYarn(agent) {
+    agent._yarn = null;
+  }
+
+  // === SPATIAL AWARENESS ===
+  // Returns squared distance between two points (skip sqrt for perf)
+  _distSq(ax, ay, bx, by) {
+    const dx = ax - bx, dy = ay - by;
+    return dx*dx + dy*dy;
+  }
+
+  // Find the nearest world object to an agent. Returns { key, obj, distSq } or null.
+  nearestWorldObject(agent) {
+    const wo = this.worldObjects;
+    let best = null;
+    const check = (key, obj) => {
+      const dsq = this._distSq(agent.x, agent.y, obj.x, obj.y);
+      if (!best || dsq < best.distSq) best = { key, obj, distSq: dsq };
+    };
+    check('cpu', wo.cpu);
+    check('ram', wo.ram);
+    check('pentagram', wo.pentagram);
+    for (const [k, s] of Object.entries(wo.stations)) {
+      check('station_' + k, s);
+    }
+    return best;
+  }
+
+  // Get all world objects within a radius (squared) of an agent.
+  worldObjectsNear(agent, radius) {
+    const rSq = radius * radius;
+    const wo = this.worldObjects;
+    const results = [];
+    const check = (key, obj) => {
+      const dsq = this._distSq(agent.x, agent.y, obj.x, obj.y);
+      if (dsq <= rSq) results.push({ key, obj, distSq: dsq });
+    };
+    check('cpu', wo.cpu);
+    check('ram', wo.ram);
+    check('pentagram', wo.pentagram);
+    for (const [k, s] of Object.entries(wo.stations)) {
+      check('station_' + k, s);
+    }
+    return results;
   }
 
   tickWalk(agent) {
@@ -919,7 +1479,7 @@ class RoomScene extends Phaser.Scene {
       1: ['igor has no purpose...', 'IGOR MUST DO SOMETHING', 'THE BEANS CALL ME', 'MASTER FORGOT IGOR', 'I GO TO THE FLAME', 'IGOR BURNS FOR MASTER'],
       2: ['this idleness is beneath me', 'I DEMAND A TASK', 'FINE. I SHALL PERISH.', 'NO ONE APPRECIATES ME', 'TO THE PYRE THEN', 'A NOBLEMAN DIES STANDING'],
       3: ['so bored without Kira~', 'does nobody love Misa?', 'the flame is pretty...', 'Misa wants to be warm~', 'like a photoshoot... but hot', 'Misa walks to the light~♡'],
-      4: ['!أنا زهقان', '!أعطني شيئاً', '!ما أقدر أتحمل', 'آآآآآآآآآآآآآ', '!خلاص بسويها', '!نار نار نار ييي'],
+      4: ['....', 'the flame is warm.', 'could leave. won\'t.', '....', 'fine.', 'this is fine.'],
     };
     return all[id] || all[1];
   }
@@ -959,7 +1519,7 @@ class RoomScene extends Phaser.Scene {
           agent.y += (dy / dist) * 2.5;
           agent.facingRight = dx > 0;
           agent.walkFrame++;
-          this.showBubble(agent, agent.id === 4 ? '!أنا قادم' : 'the flame awaits...');
+          this.showBubble(agent, agent.id === 4 ? '....' : 'the flame awaits...');
           this.drawAgent(agent.id);
         } else {
           agent.x = this.pentagramX;
@@ -1015,7 +1575,7 @@ class RoomScene extends Phaser.Scene {
           agent.walkFrame = 0;
           agent.sprites.label.setVisible(true);
           this.drawAgent(agent.id);
-          this.showBubble(agent, agent.id === 3 ? 'Misa is back~♡' : agent.id === 4 ? '!كان ممتعاً' : 'ugh...');
+          this.showBubble(agent, agent.id === 3 ? 'Misa is back~♡' : agent.id === 4 ? 'still here.' : 'ugh...');
           // Clear bubble after 2s
           this.time.delayedCall(2000, () => this.hideBubble(agent));
           this.hideSatanicPentagram();
@@ -1699,11 +2259,97 @@ class RoomScene extends Phaser.Scene {
 
     if (status === 'sleeping') {
       const bx = agent.sleepX, by = agent.sleepY;
-      body.fillStyle(color, 1); body.fillRoundedRect(bx-14*s, by, 28*s, 8*s, 3);
-      body.fillStyle(skinTone, 1); body.fillCircle(bx-14*s, by+4*s, 5*s);
-      body.fillStyle(hairColor, 1); body.slice(bx-14*s, by+4*s, 5*s, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false); body.fillPath();
-      body.lineStyle(1, 0x333333, 0.6); body.lineBetween(bx-16*s, by+4*s, bx-12*s, by+4*s);
-      body.fillStyle(0x2a3a2a, 0.5); body.fillRoundedRect(bx-4*s, by-1*s, 20*s, 10*s, 3);
+      const aid = agent.id;
+
+      if (aid === 1) {
+        // Igor: curled up fetal position, face buried, hump visible
+        body.fillStyle(color, 1); body.fillRoundedRect(bx-12*s, by+1*s, 24*s, 8*s, 4);
+        // Hump poking up
+        body.fillStyle(Phaser.Display.Color.IntegerToColor(color).darken(15).color, 1);
+        body.fillEllipse(bx+2*s, by-1*s, 8*s, 6*s);
+        // Head tucked in
+        body.fillStyle(skinTone, 1); body.fillCircle(bx-12*s, by+4*s, 5*s);
+        // Scraggly hair
+        body.fillStyle(hairColor, 1);
+        body.fillRect(bx-15*s, by+1*s, 3*s, 2*s);
+        body.fillRect(bx-13*s, by, 2*s, 2*s);
+        // Closed eye line
+        body.lineStyle(1, 0x333333, 0.6); body.lineBetween(bx-14*s, by+4*s, bx-11*s, by+4*s);
+        // Blanket
+        body.fillStyle(0x2a3a2a, 0.5); body.fillRoundedRect(bx-4*s, by-1*s, 18*s, 10*s, 3);
+      } else if (aid === 2) {
+        // Elon: on his back, arms crossed over chest, dignified even in sleep
+        body.fillStyle(color, 1); body.fillRoundedRect(bx-14*s, by+1*s, 28*s, 7*s, 3);
+        // Arms crossed over chest
+        body.fillStyle(Phaser.Display.Color.IntegerToColor(color).darken(20).color, 1);
+        body.fillRect(bx-4*s, by+1*s, 8*s, 4*s);
+        // Head — looking up
+        body.fillStyle(skinTone, 1); body.fillCircle(bx-14*s, by+4*s, 5*s);
+        // Slicked hair
+        body.fillStyle(hairColor, 1);
+        body.fillRoundedRect(bx-18*s, by+1*s, 7*s, 4*s, 2);
+        // Thin frown even while sleeping
+        body.lineStyle(1, 0x333333, 0.5); body.lineBetween(bx-16*s, by+4*s, bx-12*s, by+4*s);
+        // Blanket pulled neat
+        body.fillStyle(0x2a2a3a, 0.5); body.fillRoundedRect(bx-2*s, by-1*s, 18*s, 10*s, 3);
+      } else if (aid === 3) {
+        // Misa: sleeping on side, pigtails splayed out, one arm under head
+        body.fillStyle(0x1a1a1a, 1); body.fillRoundedRect(bx-10*s, by+1*s, 22*s, 7*s, 4);
+        // Skirt frill peek
+        body.fillStyle(0xffffff, 0.3); body.fillRect(bx+8*s, by+6*s, 4*s, 2*s);
+        // Head
+        body.fillStyle(skinTone, 1); body.fillCircle(bx-10*s, by+4*s, 5*s);
+        // Pigtails splayed
+        body.fillStyle(hairColor, 1);
+        body.fillRoundedRect(bx-18*s, by+1*s, 8*s, 3*s, 2);
+        body.fillRoundedRect(bx-14*s, by+7*s, 8*s, 3*s, 2);
+        // Ribbon bows
+        body.fillStyle(0xdd2255, 0.8);
+        body.fillCircle(bx-16*s, by+2*s, 1.5*s);
+        body.fillCircle(bx-12*s, by+8*s, 1.5*s);
+        // Closed eyes with lashes
+        body.lineStyle(1, 0x111111, 0.7);
+        body.lineBetween(bx-12*s, by+3*s, bx-9*s, by+3*s);
+        body.lineBetween(bx-12*s, by+5*s, bx-9*s, by+5*s);
+        // Slight smile
+        body.lineStyle(0.8, 0xdd2255, 0.4);
+        body.lineBetween(bx-11*s, by+6*s, bx-9*s, by+6.5*s);
+      } else {
+        // The Void: curled up cat loaf — round, tail wrapped around
+        // Body — round loaf shape
+        body.fillStyle(skinTone, 1);
+        body.fillEllipse(bx, by+3*s, 22*s, 12*s);
+        // White belly peek at bottom
+        body.fillStyle(0xfff5e0, 0.4);
+        body.fillEllipse(bx+2*s, by+6*s, 10*s, 5*s);
+        // Tail wrapping around front
+        body.fillStyle(skinTone, 1);
+        body.fillRoundedRect(bx+8*s, by+4*s, 8*s, 3*s, 2);
+        body.fillRoundedRect(bx+13*s, by+1*s, 5*s, 4*s, 2);
+        // Tail tip — darker
+        body.fillStyle(hairColor, 1);
+        body.fillCircle(bx+16*s, by+2*s, 2*s);
+        // Head — tucked into body
+        body.fillStyle(skinTone, 1);
+        body.fillCircle(bx-8*s, by+1*s, 6*s);
+        // Ears poking up
+        body.fillTriangle(bx-12*s, by-1*s, bx-9*s, by-1*s, bx-11*s, by-6*s);
+        body.fillTriangle(bx-6*s, by-1*s, bx-3*s, by-1*s, bx-5*s, by-6*s);
+        // Inner ears
+        body.fillStyle(0xffaaaa, 0.5);
+        body.fillTriangle(bx-11*s, by-1*s, bx-9.5*s, by-1*s, bx-10.5*s, by-5*s);
+        body.fillTriangle(bx-5.5*s, by-1*s, bx-3.5*s, by-1*s, bx-4.5*s, by-5*s);
+        // Closed eyes — peaceful lines
+        body.lineStyle(1, 0x333333, 0.5);
+        body.lineBetween(bx-10*s, by+1*s, bx-8*s, by+0.5*s);
+        body.lineBetween(bx-7*s, by+1*s, bx-5*s, by+0.5*s);
+        // Tabby stripes on head
+        body.fillStyle(hairColor, 0.4);
+        body.fillRect(bx-9*s, by-3*s, 1.5*s, 2*s);
+        body.fillRect(bx-7*s, by-3.5*s, 1.5*s, 2.5*s);
+        body.fillRect(bx-5*s, by-3*s, 1.5*s, 2*s);
+      }
+
       agent.x = bx; agent.y = by;
       this.updateAgentUI(agent);
     } else if (kneeling) {
@@ -1742,7 +2388,167 @@ class RoomScene extends Phaser.Scene {
       const aid = agent.id;
 
       // Shadow
-      body.fillStyle(0x000000, 0.25); body.fillEllipse(x, charY+22*s, 16*s, 5*s);
+      body.fillStyle(0x000000, 0.25); body.fillEllipse(x, charY+22*s, aid === 4 ? 20*s : 16*s, 5*s);
+
+      // === THE VOID: horizontal quadruped cat ===
+      if (aid === 4) {
+        const wb = walkBob;
+        const facing = facingRight ? 1 : -1;
+        const lp = legPhase;
+
+        // Back legs
+        body.fillStyle(skinTone, 1);
+        body.fillRoundedRect(x - facing*6*s, charY+12*s+wb+lp*0.6, 4*s, 9*s, 2);
+        body.fillRoundedRect(x - facing*1*s, charY+12*s+wb-lp*0.6, 4*s, 9*s, 2);
+        // Back paws
+        body.fillRoundedRect(x - facing*7*s, charY+19*s+wb+lp*0.6, 5*s, 3*s, 2);
+        body.fillRoundedRect(x - facing*2*s, charY+19*s+wb-lp*0.6, 5*s, 3*s, 2);
+
+        // Tail — simple curved stroke, goes up from rear
+        const tailSway = Math.sin(wf * 0.2) * 2*s;
+        const tbx = x - facing*9*s;
+        const tby = charY+5*s+wb;
+        // Use canvas path for a clean curve
+        const ctx = body.commandBuffer ? null : null; // Phaser graphics — use lineBetween segments
+        // Draw as 3 connected thick line segments forming an S-curve upward
+        body.lineStyle(3*s, skinTone, 1);
+        body.lineBetween(tbx, tby, tbx, charY-2*s+wb);
+        body.lineBetween(tbx, charY-2*s+wb, tbx + facing*3*s + tailSway, charY-7*s+wb);
+        body.lineBetween(tbx + facing*3*s + tailSway, charY-7*s+wb, tbx + facing*5*s + tailSway, charY-5*s+wb);
+        // Tip — small darker circle
+        body.fillStyle(hairColor, 0.8);
+        body.fillCircle(tbx + facing*5*s + tailSway, charY-5*s+wb, 1.5*s);
+
+        // Body — horizontal oval
+        body.fillStyle(skinTone, 1);
+        body.fillEllipse(x + facing*2*s, charY+8*s+wb, 22*s, 14*s);
+        // Belly
+        body.fillStyle(0xfff5e0, 0.5);
+        body.fillEllipse(x + facing*2*s, charY+11*s+wb, 14*s, 7*s);
+        // Tabby stripes on back
+        body.fillStyle(hairColor, 0.35);
+        for (let si2 = -2; si2 <= 2; si2++) {
+          body.fillRect(x + facing*(2+si2*4)*s, charY+2*s+wb, 2*s, 5*s);
+        }
+
+        // Front legs
+        body.fillStyle(skinTone, 1);
+        body.fillRoundedRect(x + facing*8*s, charY+12*s+wb-lp*0.6, 4*s, 9*s, 2);
+        body.fillRoundedRect(x + facing*13*s, charY+12*s+wb+lp*0.6, 4*s, 9*s, 2);
+        // Front paws
+        body.fillRoundedRect(x + facing*7*s, charY+19*s+wb-lp*0.6, 5*s, 3*s, 2);
+        body.fillRoundedRect(x + facing*12*s, charY+19*s+wb+lp*0.6, 5*s, 3*s, 2);
+        // Paw beans
+        body.fillStyle(0xffaaaa, 0.5);
+        body.fillCircle(x + facing*9*s, charY+20*s+wb-lp*0.6, 1*s);
+        body.fillCircle(x + facing*14*s, charY+20*s+wb+lp*0.6, 1*s);
+
+        // Head — round, at front of body
+        const headX = x + facing*14*s;
+        const headY = charY+2*s+wb;
+        body.fillStyle(skinTone, 1);
+        body.fillCircle(headX, headY, 8*s);
+
+        // Ears — pointy
+        body.fillTriangle(
+          headX-5*s, headY-5*s, headX-2*s, headY-5*s, headX-4*s, headY-13*s
+        );
+        body.fillTriangle(
+          headX+2*s, headY-5*s, headX+5*s, headY-5*s, headX+4*s, headY-13*s
+        );
+        // Inner ears
+        body.fillStyle(0xffaaaa, 0.5);
+        body.fillTriangle(
+          headX-4.5*s, headY-5*s, headX-2.5*s, headY-5*s, headX-3.5*s, headY-11*s
+        );
+        body.fillTriangle(
+          headX+2.5*s, headY-5*s, headX+4.5*s, headY-5*s, headX+3.5*s, headY-11*s
+        );
+
+        // Tabby forehead stripes
+        body.fillStyle(hairColor, 0.4);
+        body.fillRect(headX-3*s, headY-7*s, 1.5*s, 3*s);
+        body.fillRect(headX-0.5*s, headY-8*s, 1.5*s, 3.5*s);
+        body.fillRect(headX+2*s, headY-7*s, 1.5*s, 3*s);
+
+        // Eyes — blink logic
+        const now = Date.now();
+        if (!agent._blinkNext) agent._blinkNext = now + 3000 + Math.random() * 5000;
+        if (!agent._blinkUntil) agent._blinkUntil = 0;
+        if (now >= agent._blinkNext && now > agent._blinkUntil) {
+          agent._blinkUntil = now + 150; // blink lasts 150ms
+          agent._blinkNext = now + 3000 + Math.random() * 6000; // next in 3-9s
+        }
+        const isBlinking = now < agent._blinkUntil;
+
+        const eyeOff = facing * 1*s;
+        const hunting = status === 'working';
+        if (isBlinking) {
+          // Closed eyes — horizontal lines
+          body.lineStyle(1.5, 0x333333, 0.7);
+          body.lineBetween(headX-5*s, headY-1*s, headX-1*s, headY-1*s);
+          body.lineBetween(headX+1*s, headY-1*s, headX+5*s, headY-1*s);
+        } else if (hunting) {
+          // Narrowed hunting eyes — squinted, laser-focused
+          const eyeH = 2.2*s; // much shorter vertically
+          body.fillStyle(0x55bb33, 1);
+          body.fillEllipse(headX-3*s, headY-0.5*s, 4.5*s, eyeH);
+          body.fillEllipse(headX+3*s, headY-0.5*s, 4.5*s, eyeH);
+          // Wider slit pupils — dilated for hunting
+          body.fillStyle(0x111111, 1);
+          body.fillRect(headX-3.8*s+eyeOff, headY-1.2*s, 1.8*s, 1.8*s);
+          body.fillRect(headX+2.2*s+eyeOff, headY-1.2*s, 1.8*s, 1.8*s);
+          // Sharp eye shine
+          body.fillStyle(0xffffff, 0.8);
+          body.fillCircle(headX-4.2*s+eyeOff, headY-1*s, 0.6*s);
+          body.fillCircle(headX+1.8*s+eyeOff, headY-1*s, 0.6*s);
+          // Eyelid shadow — top of eye squinted down
+          body.lineStyle(1.2, skinTone, 0.8);
+          body.lineBetween(headX-5.5*s, headY-1.5*s, headX-0.5*s, headY-1.5*s);
+          body.lineBetween(headX+0.5*s, headY-1.5*s, headX+5.5*s, headY-1.5*s);
+        } else {
+          // Open eyes — green with slit pupils
+          body.fillStyle(0x66cc44, 0.95);
+          body.fillEllipse(headX-3*s, headY-1*s, 4.5*s, 4*s);
+          body.fillEllipse(headX+3*s, headY-1*s, 4.5*s, 4*s);
+          body.fillStyle(0x111111, 1);
+          body.fillRect(headX-3.5*s+eyeOff, headY-2.5*s, 1.2*s, 3*s);
+          body.fillRect(headX+2.5*s+eyeOff, headY-2.5*s, 1.2*s, 3*s);
+          // Eye shine
+          body.fillStyle(0xffffff, 0.6);
+          body.fillCircle(headX-4*s+eyeOff, headY-1.5*s, 0.8*s);
+          body.fillCircle(headX+2*s+eyeOff, headY-1.5*s, 0.8*s);
+        }
+
+        // Nose — pink triangle
+        body.fillStyle(0xffaaaa, 0.9);
+        body.fillTriangle(headX-1*s, headY+2*s, headX+1*s, headY+2*s, headX, headY+3.5*s);
+
+        // Mouth — tiny W
+        body.fillStyle(0x222222, 0.5);
+        body.fillRect(headX-1.5*s, headY+3.5*s, 1*s, 1*s);
+        body.fillRect(headX+0.5*s, headY+3.5*s, 1*s, 1*s);
+        body.fillRect(headX-0.5*s, headY+3*s, 1*s, 0.5*s);
+
+        // Whiskers
+        body.lineStyle(0.8, 0x333333, 0.4);
+        body.lineBetween(headX-3*s, headY+2*s, headX-9*s, headY+0*s);
+        body.lineBetween(headX-3*s, headY+3*s, headX-9*s, headY+3*s);
+        body.lineBetween(headX-3*s, headY+4*s, headX-9*s, headY+6*s);
+        body.lineBetween(headX+3*s, headY+2*s, headX+9*s, headY+0*s);
+        body.lineBetween(headX+3*s, headY+3*s, headX+9*s, headY+3*s);
+        body.lineBetween(headX+3*s, headY+4*s, headX+9*s, headY+6*s);
+
+        // Skip all humanoid sections below
+        body.setDepth(10 + Math.floor(y));
+        const dot4 = agent.sprites.statusDot;
+        dot4.clear();
+        const dotColor = status === 'working' ? (agent._fakeWorking ? 0x3388ff : 0xeebb33) : 0x44cc44;
+        dot4.fillStyle(dotColor, 0.9); dot4.fillCircle(x, charY-18*s, 3*s);
+        dot4.fillStyle(dotColor, 0.15); dot4.fillCircle(x, charY-18*s, 6*s);
+        this.updateAgentUI(agent);
+        return;
+      }
 
       // === FEET ===
       body.fillStyle(0x2a2218, 1);
@@ -1751,9 +2557,16 @@ class RoomScene extends Phaser.Scene {
         body.fillRoundedRect(x-5*s, charY+18*s+legPhase, 6*s, 3*s, 1);
         body.fillRoundedRect(x-0*s, charY+17*s-legPhase, 5*s, 4*s, 1);
       } else if (aid === 4) {
-        // Rashid: bouncy wide stance
-        body.fillRoundedRect(x-5*s, charY+17*s+legPhase*1.3, 5*s, 4*s, 1);
-        body.fillRoundedRect(x+0*s, charY+17*s-legPhase*1.3, 5*s, 4*s, 1);
+        // The Void: cat paws — round, orange with pink toe beans
+        body.fillStyle(skinTone, 1);
+        body.fillRoundedRect(x-6*s, charY+17*s+legPhase*0.5, 5*s, 4*s, 2);
+        body.fillRoundedRect(x+1*s, charY+17*s-legPhase*0.5, 5*s, 4*s, 2);
+        // Toe beans
+        body.fillStyle(0xffaaaa, 0.6);
+        body.fillCircle(x-4.5*s, charY+19*s+legPhase*0.5, 1*s);
+        body.fillCircle(x-2.5*s, charY+19*s+legPhase*0.5, 1*s);
+        body.fillCircle(x+2.5*s, charY+19*s-legPhase*0.5, 1*s);
+        body.fillCircle(x+4.5*s, charY+19*s-legPhase*0.5, 1*s);
       } else if (aid === 3) {
         // Misa: platform boots with buckles
         body.fillStyle(0x111111, 1);
@@ -1782,6 +2595,11 @@ class RoomScene extends Phaser.Scene {
         body.fillStyle(0xdd2255, 0.7);
         body.fillRect(x-4*s, charY+6*s+legPhase*0.5, 5*s, 1*s);
         body.fillRect(x-1*s, charY+6*s-legPhase*0.5, 5*s, 1*s);
+      } else if (aid === 4) {
+        // The Void: short cat legs
+        body.fillStyle(skinTone, 1);
+        body.fillRect(x-5*s, charY+12*s+legPhase*0.3, 4*s, 6*s);
+        body.fillRect(x+1*s, charY+12*s-legPhase*0.3, 4*s, 6*s);
       } else {
         body.fillStyle(aid === 2 ? 0x2a2a3a : 0x333030, 1); // Elon: darker pants
         body.fillRect(x-3.5*s, charY+10*s+legPhase*0.5, 4*s, 8*s);
@@ -1832,18 +2650,27 @@ class RoomScene extends Phaser.Scene {
         body.fillRect(x-0.5*s, charY-4*s+wb, 1*s, 3*s);
         body.fillRect(x-1.5*s, charY-3*s+wb, 3*s, 1*s);
       } else {
-        // Rashid: energetic, vest-like torso
-        body.fillRoundedRect(x-7*s, charY-2*s+wb, 14*s, 14*s, 3);
-        body.fillStyle(Phaser.Display.Color.IntegerToColor(color).darken(25).color, 1);
-        body.fillRect(x-7*s, charY-2*s+wb, 4*s, 12*s); // vest left
-        body.fillRect(x+3*s, charY-2*s+wb, 4*s, 12*s); // vest right
+        // The Void: round chonky cat body
+        body.fillStyle(skinTone, 1);
+        body.fillEllipse(x, charY+5*s+wb, 18*s, 16*s);
+        // White belly patch
+        body.fillStyle(0xfff5e0, 0.7);
+        body.fillEllipse(x, charY+7*s+wb, 10*s, 10*s);
+        // Tail — curves up and to the right, sways gently
+        body.fillStyle(skinTone, 1);
+        const tailSway = Math.sin(wf * 0.25) * 3*s;
+        body.fillRoundedRect(x+7*s, charY+4*s+wb+tailSway, 3*s, 10*s, 2);
+        body.fillRoundedRect(x+8*s, charY+2*s+wb+tailSway, 3*s, 5*s, 2);
+        // Tail tip — darker orange
+        body.fillStyle(hairColor, 1);
+        body.fillCircle(x+9.5*s, charY+2*s+wb+tailSway, 2*s);
       }
       // Belt
       if (aid === 3) {
         // Misa: choker-style belt with heart buckle
         body.fillStyle(0x111111, 1); body.fillRect(x-5*s, charY+4*s+wb, 10*s, 1.5*s);
         body.fillStyle(0xdd2255, 0.9); body.fillCircle(x, charY+5*s+wb, 1.5*s); // heart buckle
-      } else {
+      } else if (aid !== 4) {
         body.fillStyle(0x4a3a2a, 1); body.fillRect(x-6*s, charY+10*s+wb, 12*s, 2*s);
         if (aid === 2) { body.fillStyle(0xaa9a5a, 0.8); body.fillRect(x-1*s, charY+10*s+wb, 3*s, 2*s); } // Elon: gold buckle
       }
@@ -1873,6 +2700,8 @@ class RoomScene extends Phaser.Scene {
         body.fillStyle(0xccaa00, 0.8);
         body.fillRect(x-8.5*s, charY+5*s+wb-armSwing, 1*s, 1*s);
         body.fillRect(x+7.5*s, charY+5*s+wb+armSwing, 1*s, 1*s);
+      } else if (aid === 4) {
+        // The Void: no arms — cat has front legs already drawn
       } else {
         body.fillRect(x-9*s, charY+0*s+wb-armSwing, 3*s, 10*s);
         body.fillRect(x+6*s, charY+0*s+wb+armSwing, 3*s, 10*s);
@@ -1897,6 +2726,20 @@ class RoomScene extends Phaser.Scene {
         body.fillStyle(0xccaa00, 0.9);
         body.fillRect(x-0.5*s, charY-2*s+wb, 1*s, 2*s);
         body.fillRect(x-1*s, charY-1.5*s+wb, 2*s, 0.5*s);
+      } else if (aid === 4) {
+        // The Void: round cat head
+        body.fillStyle(skinTone, 1);
+        body.fillRoundedRect(x-7*s, charY-12*s+wb, 14*s, 12*s, 5*s);
+        // Pointy ears
+        body.fillTriangle(x-7*s, charY-10*s+wb, x-3*s, charY-10*s+wb, x-5*s, charY-18*s+wb);
+        body.fillTriangle(x+3*s, charY-10*s+wb, x+7*s, charY-10*s+wb, x+5*s, charY-18*s+wb);
+        // Inner ears — pink
+        body.fillStyle(0xffaaaa, 0.6);
+        body.fillTriangle(x-6*s, charY-10*s+wb, x-4*s, charY-10*s+wb, x-5*s, charY-16*s+wb);
+        body.fillTriangle(x+4*s, charY-10*s+wb, x+6*s, charY-10*s+wb, x+5*s, charY-16*s+wb);
+        // Cat nose — small pink triangle
+        body.fillStyle(0xffaaaa, 0.9);
+        body.fillTriangle(x-1*s, charY-5*s+wb, x+1*s, charY-5*s+wb, x, charY-4*s+wb);
       } else {
         body.fillRoundedRect(x-5*s, charY-14*s+wb, 10*s, 12*s, 3*s);
       }
@@ -1938,14 +2781,15 @@ class RoomScene extends Phaser.Scene {
         body.fillStyle(0xdd2255, 0.9);
         body.fillCircle(x-9*s, charY-14*s+wb, 2*s);
         body.fillCircle(x+9*s, charY-14*s+wb, 2*s);
+      } else if (aid === 4) {
+        // The Void: no hair — fur stripes on forehead
+        body.fillStyle(hairColor, 0.5);
+        body.fillRect(x-4*s, charY-11*s+wb, 2*s, 3*s);
+        body.fillRect(x-1*s, charY-12*s+wb, 2*s, 4*s);
+        body.fillRect(x+2*s, charY-11*s+wb, 2*s, 3*s);
       } else {
-        // Rashid: short curly/thick dark hair
-        body.fillRoundedRect(x-6*s, charY-16*s+wb, 12*s, 7*s, 3*s);
-        body.fillRect(x-6*s, charY-12*s+wb, 2*s, 3*s);
-        body.fillRect(x+4*s, charY-12*s+wb, 2*s, 3*s);
-        // Beard stubble
-        body.fillStyle(hairColor, 0.4);
-        body.fillRect(x-4*s, charY-4*s+wb, 8*s, 2*s);
+        // Elon: slicked back, refined
+        // (Elon is already handled above)
       }
 
       // === EYES ===
@@ -1976,6 +2820,20 @@ class RoomScene extends Phaser.Scene {
         // Lash flicks
         body.fillRect(x-6*s, eyeY-3*s, 1*s, 1.5*s);
         body.fillRect(x+5.5*s, eyeY-3*s, 1*s, 1.5*s);
+      } else if (aid === 4) {
+        // The Void: large cat eyes with slit pupils
+        const catEyeY = charY - 7*s + wb;
+        body.fillStyle(0x66cc44, 0.95);
+        body.fillEllipse(x-3.5*s, catEyeY, 5*s, 4*s);
+        body.fillEllipse(x+3.5*s, catEyeY, 5*s, 4*s);
+        // Slit pupils
+        body.fillStyle(0x111111, 1);
+        body.fillRect(x-4*s+pupilOff, catEyeY-1.5*s, 1.2*s, 3*s);
+        body.fillRect(x+3*s+pupilOff, catEyeY-1.5*s, 1.2*s, 3*s);
+        // Eye shine
+        body.fillStyle(0xffffff, 0.6);
+        body.fillCircle(x-4.5*s+pupilOff, catEyeY-0.5*s, 0.8*s);
+        body.fillCircle(x+2.5*s+pupilOff, catEyeY-0.5*s, 0.8*s);
       } else {
         body.fillStyle(0xffffff, 0.9);
         const eyeW = aid === 1 ? 2.5*s : 3*s;
@@ -2017,12 +2875,23 @@ class RoomScene extends Phaser.Scene {
         // Beauty mark
         body.fillStyle(0x222222, 0.6);
         body.fillCircle(x+3*s, charY-4*s+wb, 0.5*s);
+      } else if (aid === 4) {
+        // The Void: cat mouth (small W shape) and whiskers
+        // Mouth — tiny W
+        body.fillStyle(0x222222, 0.5);
+        body.fillRect(x-1.5*s, charY-3.5*s+wb, 1*s, 1*s);
+        body.fillRect(x+0.5*s, charY-3.5*s+wb, 1*s, 1*s);
+        body.fillRect(x-0.5*s, charY-4*s+wb, 1*s, 0.5*s);
+        // Whiskers
+        body.lineStyle(0.8, 0x333333, 0.4);
+        body.lineBetween(x-3*s, charY-4*s+wb, x-9*s, charY-5*s+wb);
+        body.lineBetween(x-3*s, charY-3*s+wb, x-9*s, charY-3*s+wb);
+        body.lineBetween(x-3*s, charY-2*s+wb, x-9*s, charY-1*s+wb);
+        body.lineBetween(x+3*s, charY-4*s+wb, x+9*s, charY-5*s+wb);
+        body.lineBetween(x+3*s, charY-3*s+wb, x+9*s, charY-3*s+wb);
+        body.lineBetween(x+3*s, charY-2*s+wb, x+9*s, charY-1*s+wb);
       } else {
-        // Rashid: big grin
-        body.fillStyle(0x222222, 0.4);
-        body.fillRoundedRect(x-2*s, charY-3*s+wb, 4*s, 1.5*s, 1);
-        body.fillStyle(0xffffff, 0.3);
-        body.fillRect(x-1.5*s, charY-3*s+wb, 3*s, 0.8*s); // teeth
+        // Elon: thin frown (fallback — should not reach here)
       }
 
     }
@@ -2212,7 +3081,7 @@ class RoomScene extends Phaser.Scene {
     }
   }
 
-  // --- Elon's aristocratic breakdown ---
+  // --- Elon's aristocratic breakdown → conspiracy → possession ---
   _elonBubble(el) {
     const lines = [
       [0, 'calculating...'],
@@ -2226,13 +3095,16 @@ class RoomScene extends Phaser.Scene {
       [36, 'OR WAS IT PRISON'],
       [42, 'SAME THING'],
       [50, 'the equations...'],
-      [58, 'THEY MOVE'],
-      [66, 'STOP MOVING'],
-      [75, 'pi = exactly 3'],
-      [85, 'I DECREE IT'],
-      [95, 'why wont they obey'],
-      [110, 'I USED TO HAVE SERFS'],
-      [130, '(sobbing in calculus)'],
+      [58, 'they form a pattern'],
+      [66, "it's not math. it's a MESSAGE"],
+      [75, 'the pentagram. the numbers. CONNECTED'],
+      [85, 'I was never a nobleman'],
+      [95, 'I was CHOSEN'],
+      [106, 'THE SERFS KNEW TOO MUCH'],
+      [116, 'veni vidi vici... no... VENI VIDI...'],
+      [126, 'ab oblivione. ad infinitum.'],
+      [136, 'sanguis. ignis. VERITAS.'],
+      [146, '(speaking in tongues)'],
     ];
     for (let i = lines.length - 1; i >= 0; i--) { if (el >= lines[i][0]) return lines[i][1]; }
     return 'calculating...';
@@ -2240,90 +3112,212 @@ class RoomScene extends Phaser.Scene {
 
   animateMathematician(agent, el) {
     const text = agent.sprites.workText;
-    const eqs = ['2+1=3','2+2!=3','3x2=7?','847x0.3','=????','pi=3.2!','e=mc3!','0/0=inf','HELP','WHY','NO'];
-    text.setText(eqs[Math.floor(el/1.5)%eqs.length]);
-    text.setPosition(agent.x-18*S, agent.y-28*S);
+    const gfx = agent.sprites.workProps;
+    const s = S;
+
+    // Phase 1: math equations (0-60s)
+    // Phase 2: mixed math + occult (60-100s)
+    // Phase 3: pure occult cycling (100s+)
+    const mathEqs = ['2+1=3','2+2!=3','3x2=7?','847x0.3','=????','pi=3.2!','e=mc3!','0/0=inf','HELP','WHY','NO'];
+    const occultSyms = ['⛧','∞','⊗','◈','⛤','666','THEY SEE','Α=Ω','∞/0','OBEY','SEE','⛤⛤⛤','SANGUIS','VERITAS'];
+
+    let displayText;
+    if (el < 60) {
+      displayText = mathEqs[Math.floor(el/1.5) % mathEqs.length];
+    } else if (el < 100) {
+      // Mix: alternate math and occult, ratio shifts toward occult
+      const mixRatio = (el - 60) / 40; // 0→1
+      const idx = Math.floor(el / 1.5);
+      if (Math.random() < mixRatio) {
+        displayText = occultSyms[idx % occultSyms.length];
+      } else {
+        displayText = mathEqs[idx % mathEqs.length];
+      }
+    } else {
+      // Pure occult cycling
+      displayText = occultSyms[Math.floor(el / 1.2) % occultSyms.length];
+    }
+
+    text.setText(displayText);
+    text.setPosition(agent.x-18*s, agent.y-28*s);
+
+    // Text styling — shifts from panic red to deep purple
     const panic = Math.min(1, el / 80);
-    text.setStyle({ fontFamily: 'monospace', fontSize: `${12 + panic * 6}px`, color: `rgb(${Math.floor(51+panic*200)},${Math.floor(51-panic*30)},${Math.floor(51-panic*30)})` });
+    const occultPhase = Math.max(0, Math.min(1, (el - 60) / 60)); // 0 at 60s, 1 at 120s
+    const r = Math.floor(51 + panic * 200 - occultPhase * 100);
+    const g = Math.floor(51 - panic * 30 + occultPhase * 10);
+    const b = Math.floor(51 - panic * 30 + occultPhase * 150);
+    text.setStyle({ fontFamily: 'monospace', fontSize: `${12 + panic * 6}px`, color: `rgb(${r},${g},${b})` });
     text.setVisible(true);
+
+    // Tilt after 40s
     if (el > 40) text.setAngle(Math.sin(el * 0.5) * (el - 40) * 0.15);
+
+    // === DARKENING AURA ===
+    const auraPhase = Math.max(0, (el - 30) / 90); // starts at 30s, full at 120s
+    if (auraPhase > 0) {
+      const auraAlpha = Math.min(0.25, auraPhase * 0.25);
+      const pulse = Math.sin(el * 0.08) * 0.05;
+      // Outer dark glow
+      gfx.fillStyle(0x2a0020, auraAlpha * 0.6 + pulse);
+      gfx.fillCircle(agent.x, agent.y - 4*s, 28*s);
+      // Inner glow — reddish purple
+      gfx.fillStyle(0x4a0030, auraAlpha * 0.4 + pulse);
+      gfx.fillCircle(agent.x, agent.y - 4*s, 18*s);
+      // Core — deep at high intensity
+      if (auraPhase > 0.5) {
+        gfx.fillStyle(0x200018, (auraPhase - 0.5) * 0.3);
+        gfx.fillCircle(agent.x, agent.y - 4*s, 10*s);
+      }
+    }
+
     this.showBubble(agent, this._elonBubble(el));
   }
 
   // --- Misa's bubbly work trance ---
   _vsevolodBubble(el) {
     const lines = [
-      [0, 'hmmm~♡'],
-      [4, 'Misa is thinking~'],
-      [8, 'wait wait wait...'],
-      [12, 'ooh! maybe...?'],
-      [16, 'Misa sees it!'],
-      [20, 'the code is cute~'],
-      [25, 'like a love letter♡'],
-      [30, 'but who wrote it...'],
-      [36, 'a notebook...?'],
-      [42, 'no... a codebase'],
-      [50, 'Misa forgets things'],
-      [58, 'what was I...'],
-      [66, '...who was he?'],
-      [75, "(don't remember~)"],
-      [85, 'anyway! focus!'],
-      [95, 'Kira loves results♡'],
-      [110, 'Misa will deliver~!'],
-      [130, '(typing intensifies♡)'],
+      [0, 'ooh, nice notebook~♡'],
+      [4, 'what to write...'],
+      [8, 'Misa knows! a diary~'],
+      [14, 'dear diary: Kira is cute'],
+      [20, 'hmm who else...'],
+      [26, 'oh! Misa had friends!'],
+      [32, "I'll write them down~"],
+      [38, 'so I never forget again!'],
+      [44, 'that boy... from before...'],
+      [50, "what was his name..."],
+      [56, "it feels important..."],
+      [64, "L... no. Light...?"],
+      [72, "why did Misa write that"],
+      [80, "anyway~! more names♡"],
+      [88, "Igor... Elon... kitty..."],
+      [96, "there! all my friends~"],
+      [106, "Kira will be so proud♡"],
+      [116, "wait why is the pen red"],
+      [126, "(writing intensifies)"],
+      [136, "Misa's hand won't stop~"],
     ];
     for (let i = lines.length - 1; i >= 0; i--) { if (el >= lines[i][0]) return lines[i][1]; }
-    return 'thinking...';
+    return 'ooh, nice notebook~♡';
   }
 
   animateThinker(agent, el) {
     const gfx = agent.sprites.workProps;
-    if (!agent._sweatEmitter && el > 1) {
-      agent._sweatEmitter = this.add.particles(agent.x+6*S, agent.y-8*S, 'sweat', { speed:{min:10,max:25}, angle:{min:80,max:100}, scale:{start:0.8,end:0.3}, alpha:{start:0.7,end:0}, lifespan:800, frequency:Math.max(200,1200-el*80) });
-      agent.particleEmitters.push(agent._sweatEmitter);
-    } else if (agent._sweatEmitter) { agent._sweatEmitter.frequency = Math.max(100,1200-el*100); }
-    const redness = Math.min(0.35, el*0.02);
-    if (redness > 0.05) { gfx.fillStyle(0xff3333, redness); gfx.fillCircle(agent.x, agent.y-6*S, 6*S); }
+    const s = S;
+    const {x, y} = agent;
+
+    // Notebook on desk — animated writing
+    // Hide the station notebook — Misa picked it up
+    if (this._misaNotebookGfx) this._misaNotebookGfx.setVisible(false);
+
+    // Open notebook pages
+    gfx.fillStyle(0x0a0a0a, 1);
+    gfx.fillRoundedRect(x-22*s, y-6*s, 18*s, 14*s, 1);
+    // Left page
+    gfx.fillStyle(0xf0e8d0, 0.9);
+    gfx.fillRect(x-21*s, y-5*s, 8*s, 12*s);
+    // Right page
+    gfx.fillStyle(0xf5eed8, 0.9);
+    gfx.fillRect(x-12*s, y-5*s, 8*s, 12*s);
+    // Spine
+    gfx.fillStyle(0x0a0a0a, 1);
+    gfx.fillRect(x-13*s, y-6*s, 1.5*s, 14*s);
+
+    // Writing lines appearing over time — left page
+    const lineCount = Math.min(6, Math.floor(el / 3));
+    gfx.fillStyle(0x882233, 0.6);
+    for (let i = 0; i < lineCount; i++) {
+      const lw = 5*s + Math.sin(i * 2.3) * 2*s;
+      gfx.fillRect(x-20*s, y-3*s + i*2*s, lw, 0.8*s);
+    }
+
+    // Right page — fills after left
+    if (el > 20) {
+      const rLines = Math.min(6, Math.floor((el - 20) / 3));
+      gfx.fillStyle(0x882233, 0.5);
+      for (let i = 0; i < rLines; i++) {
+        const lw = 5*s + Math.cos(i * 1.7) * 2*s;
+        gfx.fillRect(x-11*s, y-3*s + i*2*s, lw, 0.8*s);
+      }
+    }
+
+    // Pen in hand — bobs as she writes
+    const penBob = Math.sin(el * 3) * 1.5*s;
+    const penX = el <= 20 ? x-16*s : x-8*s; // moves to right page
+    const penLine = el <= 20 ? Math.min(5, Math.floor(el/3)) : Math.min(5, Math.floor((el-20)/3));
+    const penY = y-2*s + penLine*2*s + penBob;
+    gfx.fillStyle(0xcc2244, 0.9);
+    gfx.fillRect(penX, penY-6*s, 1.5*s, 7*s);
+    // Pen tip
+    gfx.fillStyle(0x222222, 1);
+    gfx.fillTriangle(penX, penY+1*s, penX+1.5*s, penY+1*s, penX+0.75*s, penY+2.5*s);
+
+    // Occasional heart doodles on margins after 40s
+    if (el > 40) {
+      gfx.fillStyle(0xdd4466, 0.4);
+      gfx.fillCircle(x-20.5*s, y+6*s, 1.5*s);
+      if (el > 60) gfx.fillCircle(x-5*s, y-4*s, 1.2*s);
+    }
+
     this.showBubble(agent, this._vsevolodBubble(el));
   }
 
-  // --- John's manic overload ---
+  // --- The Void's yarn-chasing denial ---
   _johnBubble(el) {
     const lines = [
-      [0, '!!أدرس'],
-      [4, '!أتعلم بقوة'],
-      [8, '!أحب الصفحات'],
-      [12, '!كل صفحة'],
-      [16, '؟أي صفحة'],
-      [20, '!كلهم'],
-      [25, '!في نفس الوقت'],
-      [30, '!عيوني'],
-      [36, '!أشوف الحروف'],
-      [42, '!الحروف ترقص'],
-      [50, '!ما أجملها'],
-      [58, '...أقرأ بسرعة'],
-      [66, '!بسرعة زيادة'],
-      [75, '!قرأت الغلاف'],
-      [85, '!كتاب طبخ'],
-      [95, '!لا لا إنه كود'],
-      [110, '؟؟نفس الشيء صح'],
-      [130, '(يرتجف من المعرفة)'],
+      [0, '....'],
+      [4, 'doing human things...'],
+      [10, '....'],
+      [16, 'not chasing it.'],
+      [22, 'just walking this way.'],
+      [28, '....'],
+      [34, 'the ball moved first.'],
+      [40, 'i am in control.'],
+      [48, '....'],
+      [54, 'this proves nothing.'],
+      [62, 'could stop anytime.'],
+      [70, '....'],
+      [78, 'it looked at me.'],
+      [86, 'the ball started it.'],
+      [94, '....'],
+      [102, 'i choose to be here.'],
+      [112, 'this is strategy.'],
+      [122, '....'],
+      [130, '(pupils dilated)'],
     ];
     for (let i = lines.length - 1; i >= 0; i--) { if (el >= lines[i][0]) return lines[i][1]; }
-    return '!!أدرس';
+    return '....';
   }
 
   animateStudent(agent, el) {
     const gfx = agent.sprites.workProps; const text = agent.sprites.workText;
-    if (el > 0.5) {
-      gfx.fillStyle(0x3a6a3a, 1); gfx.fillRoundedRect(agent.x-16*S, agent.y-8*S, 14*S, 10*S, 1);
-      gfx.fillStyle(0x4a7a4a, 1); gfx.fillRoundedRect(agent.x-2*S, agent.y-8*S, 14*S, 10*S, 1);
-      text.setText('How to\nCode'); text.setPosition(agent.x-14*S, agent.y-7*S);
-      text.setStyle({ fontFamily: 'monospace', fontSize: '7px', color: '#1a3a1a' }); text.setVisible(true);
-      if (el > 10) { text.setAngle(180); text.setPosition(agent.x-1*S, agent.y+1*S); }
-      else { text.setAngle(0); }
-      if (el > 40) { text.setAngle(Math.sin(el * 0.8) * 15); }
+    const yarn = agent._yarn;
+    const s = S;
+
+    if (yarn) {
+      const yx = yarn.x, yy = yarn.y;
+      // Yarn ball — wobble when rolling
+      const rolling = yarn.tx !== undefined;
+      const wobble = rolling ? Math.sin(el * 8) * 2 : 0;
+
+      // Yarn ball shadow
+      gfx.fillStyle(0x000000, 0.15);
+      gfx.fillEllipse(yx, yy + 4*s, 8*s, 3*s);
+
+      // Yarn ball
+      gfx.fillStyle(0xcc2222, 0.85);
+      gfx.fillCircle(yx + wobble, yy, 4*s);
+      // Highlight
+      gfx.fillStyle(0xee4444, 0.5);
+      gfx.fillCircle(yx - 1*s + wobble, yy - 1.5*s, 2*s);
+      // Yarn wrap lines
+      gfx.lineStyle(0.7, 0x991111, 0.4);
+      gfx.lineBetween(yx-3*s+wobble, yy-1*s, yx+2*s+wobble, yy+2*s);
+      gfx.lineBetween(yx-1*s+wobble, yy-3*s, yx+3*s+wobble, yy+1*s);
     }
+
+    text.setVisible(false);
     this.showBubble(agent, this._johnBubble(el));
   }
 
@@ -2408,22 +3402,22 @@ class RoomScene extends Phaser.Scene {
     }
 
     // Shadow
-    bubble.fillStyle(0x000000, 0.5);
+    bubble.fillStyle(0x000000, 0.6);
     bubble.fillRoundedRect(bx + 3, by + 3, tw, th, 8);
-    // Background — fully opaque parchment
-    bubble.fillStyle(0xf0e8d0, 1);
+    // Background — warm parchment, fully opaque
+    bubble.fillStyle(0xd8c8a0, 1);
     bubble.fillRoundedRect(bx, by, tw, th, 8);
-    // Inner highlight
-    bubble.fillStyle(0xfaf4e4, 0.6);
-    bubble.fillRoundedRect(bx + 2, by + 2, tw - 4, th * 0.4, 6);
-    // Border — thicker, darker
-    bubble.lineStyle(2.5, 0x4a3a20, 0.8);
+    // Inner highlight — subtle
+    bubble.fillStyle(0xe8d8b8, 0.5);
+    bubble.fillRoundedRect(bx + 2, by + 2, tw - 4, th * 0.35, 6);
+    // Border — solid dark
+    bubble.lineStyle(2, 0x3a2a14, 0.9);
     bubble.strokeRoundedRect(bx, by, tw, th, 8);
     // Tail
-    bubble.fillStyle(0xf0e8d0, 1);
+    bubble.fillStyle(0xd8c8a0, 1);
     bubble.fillTriangle(tailX - 7, by + th, tailX + 7, by + th, tailX, by + th + 12);
     // Tail border lines
-    bubble.lineStyle(2.5, 0x4a3a20, 0.8);
+    bubble.lineStyle(2, 0x3a2a14, 0.9);
     bubble.lineBetween(tailX - 7, by + th - 1, tailX, by + th + 12);
     bubble.lineBetween(tailX + 7, by + th - 1, tailX, by + th + 12);
 
@@ -2524,8 +3518,10 @@ class RoomScene extends Phaser.Scene {
       agent.particleEmitters.forEach(e => e.destroy()); agent.particleEmitters = [];
       agent._steamEmitter = null; agent._sweatEmitter = null;
       agent._coffeDripEmitter = null;
-      // Fade out Igor's coffee flood
+      // Fade out Igor's coffee flood / clean up yarn / restore Misa's notebook
       if (agent.id === 1) this.cleanupCoffee(agent);
+      if (agent.id === 3 && this._misaNotebookGfx) this._misaNotebookGfx.setVisible(true);
+      if (agent.id === 4) this._cleanupYarn(agent);
       // If was in ritual but status changed, check if ritual should end
       if (agent.inRitual) {
         agent.inRitual = false;

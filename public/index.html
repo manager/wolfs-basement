@@ -1043,18 +1043,18 @@
                style="--agent-color: #bb55dd; --agent-color-rgb: 187,85,221;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🖤</span>
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">👑</span>
               <span class="card-name">MISA</span>
               <span class="card-status sleeping" id="card-status-3">SLEEPING</span>
               <span class="card-project" id="card-project-3"></span>
             </div>
           </div>
           <div class="agent-card" data-id="4" draggable="true" onclick="selectAgent(4)"
-               style="--agent-color: #ccaa40; --agent-color-rgb: 204,170,64;">
+               style="--agent-color: #e88830; --agent-color-rgb: 232,136,48;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(4)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128293;</span>
-              <span class="card-name">رشيد</span>
+              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🐈</span>
+              <span class="card-name">THE VOID</span>
               <span class="card-status sleeping" id="card-status-4">SLEEPING</span>
               <span class="card-project" id="card-project-4"></span>
             </div>
@@ -1209,9 +1209,9 @@
     const _agentInputText = {}; // per-agent command input text
     let _pickingFolder = false; // guard for folder picker
 
-    const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Misa', 4: 'رشيد' };
-    const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'MISA', 4: 'رشيد' };
-    const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#bb55dd', 4: '#ccaa40' };
+    const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Misa', 4: 'The Void' };
+    const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'MISA', 4: 'THE VOID' };
+    const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#bb55dd', 4: '#e88830' };
 
     // ===== WEBSOCKET =====
     function connectWS() {

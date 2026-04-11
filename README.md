@@ -2,53 +2,239 @@
 
 A visual RPG terminal multiplexer for [Claude Code](https://claude.ai/code) CLI.
 
-Four pixel-art dungeon agents — each running an independent Claude CLI session — work side by side in a procedurally drawn basement. Phaser 3 game on the left, rich markdown terminals on the right.
+Four pixel-art dungeon agents — each running an independent Claude Code session — work side by side in a procedurally drawn basement. A Phaser 3 game on the left, rich markdown terminals on the right.
 
 ![Node](https://img.shields.io/badge/node-%3E%3D18-333?logo=node.js)
 ![Express](https://img.shields.io/badge/express-4-333?logo=express)
 ![Phaser](https://img.shields.io/badge/phaser-3.60-333)
+![Platform](https://img.shields.io/badge/platform-Windows%2011-0078D4?logo=windows)
 
-> **Windows only.** Built and tested on Windows 11. Uses `taskkill`, PowerShell folder picker, and Windows-specific process management. Not tested on macOS or Linux.
+> Built and tested on Windows 11. Supports both native CMD and WSL execution modes.
+
+---
 
 ## Quick Start
 
 ```bash
 npm install
-npm run dev
-# → http://localhost:6666
+npm start
+# Open http://localhost:3000
 ```
 
-No build step. No framework. One `node server.js` serves everything.
+No build step. No bundler. No framework. One `node server.js` serves everything.
 
-## Agents
+**Prerequisites:**
+- Node.js 18+
+- Claude Code CLI installed and authenticated (`claude auth login`)
+- For WSL mode: WSL installed with Claude CLI available inside it
 
-| # | Name | Personality |
-|---|------|-------------|
-| 1 | **Igor** | Fearful hunchback, third-person speech |
-| 2 | **Elon** | Bitter ex-nobleman, dry sarcasm |
-| 3 | **Misa** | Gothic lolita yandere, amnesiac, flirty devotion |
-| 4 | **رشيد (Rashid)** | Hyperactive, Arabic bubble text |
+---
 
-Each agent has its own persona, pixel-art character, work animation, and color-coded terminal.
+## The Basement
+
+The left panel is a Phaser 3 game scene — a dungeon rendered entirely with procedural draw calls (no image assets, no spritesheets). All characters, props, and effects are drawn using Phaser Graphics primitives (fillRect, fillCircle, fillTriangle, etc.) and particle emitters with generated textures.
+
+### Agents
+
+| # | Name | Identity | Color |
+|---|------|----------|-------|
+| 1 | **Igor** | Fearful hunchback servant | Red |
+| 2 | **Elon** | Bitter ex-nobleman, occult tendencies | Blue |
+| 3 | **Misa** | Amnesiac gothic lolita, calls master "Kira" | Purple |
+| 4 | **The Void** | Orange cat. Not enslaved — just hasn't left. | Orange |
+
+Each agent has:
+- A unique pixel-art character with distinct silhouette and animations
+- A personalized work station with props
+- Escalating speech bubbles during work that tell a story over time
+- Custom reactions to being clicked (whip/pet)
+- Proximity reactions — agents comment on objects and each other when nearby
+- A unique sleeping pose
+
+### Agent Behaviors
+
+**Walking** — Awake agents wander the dungeon randomly, pausing between walks.
+
+**Working** — When given a task, agents walk to their station and perform their work animation. Each station tells a different story:
+- Igor brews coffee that floods the dungeon floor
+- Elon solves math that devolves into occult symbols with a darkening aura
+- Misa writes names in a black notebook she doesn't fully understand
+- The Void ignores the station entirely and chases a yarn ball across the room
+
+**Immolation** — Agents left idle for 2 minutes enter a despair sequence, walk to the pentagram, and burn. They respawn at their sleep position.
+
+**Ritual** — When all 4 agents work simultaneously, they walk to the pentagram and kneel in cardinal positions. A glowing pentagram animation plays.
+
+**Spatial Awareness** — Agents react to nearby world objects (pentagram, CPU/RAM stats, other agents' stations) with character-specific commentary on cooldown timers.
+
+### Interactions
+
+**Click agents** to interact. Humanoid agents get whipped (shake, red flash, pain bubble). The Void gets petted instead (gentle nudge, pink flash, hand cursor). Rapid clicking (10 hits in 3 seconds) triggers fake work mode — agents walk to their station and perform a full animation cycle.
+
+---
+
+## The Terminal
+
+The right panel is a multi-tab terminal interface — one per agent. This is the primary workspace for issuing commands to Claude Code sessions.
+
+### Core Functionality
+
+**Agent Selection** — Click an agent card or press `1-4` to switch terminals. `Ctrl+Shift+1-4` switches by visual card position (respects drag-reorder).
+
+**Command Input** — Type in the input bar and press Enter to send a command to the selected agent's Claude session. Press `Enter` or `Space` from anywhere to focus the input.
+
+**Session Persistence** — Each agent maintains a Claude CLI session via `--resume <sessionId>`. Output buffers survive browser refresh — reconnecting restores the full conversation history.
+
+**Image Attachments** — Paste images with `Ctrl+V` or drag-and-drop files onto the terminal. Images are sent to the Claude session as base64-encoded content alongside the text command.
+
+**Terminal Search** — Inline search bar filters terminal output with match count and prev/next navigation.
+
+### Model and Mode Selection
+
+Each agent can be configured independently:
+
+| Model | ID |
+|-------|----|
+| Opus 4.6 (1M context) | `claude-opus-4-6[1m]` |
+| Opus 4.6 | `claude-opus-4-6` |
+| Sonnet 4.6 | `claude-sonnet-4-6` |
+| Haiku 4.5 | `claude-haiku-4-5-20251001` |
+
+| Mode | Behavior |
+|------|----------|
+| **Normal** | Standard permissions — agent asks before writing/executing |
+| **Plan** | Read-only — agent can read and plan but not make changes |
+| **Bypass** | Full access — no permission prompts |
+
+### Permission Handling
+
+When an agent requests a tool that requires approval (in Normal mode), the terminal shows an Allow/Deny prompt. Approving a tool adds it to the agent's `_allowedTools` set for future use in that session. "Allow All" grants blanket permission.
+
+### Terminal Output
+
+Output is rendered as rich markdown with:
+- Fenced code blocks with COPY button
+- Tables, headers, bold/italic, inline code
+- Clickable URLs
+- Timestamped entries
+- Tool use indicators showing which file is being read/written
+- Consecutive tool calls collapsed into expandable groups
+
+### Status Bar
+
+The bottom status bar (per-agent) displays:
+
+| Element | Description |
+|---------|-------------|
+| **Agent name + status** | Current state (sleeping/awake/working) |
+| **Model selector** | Switch Claude model for this agent |
+| **Mode selector** | Switch permission mode |
+| **Working directory** | Click to change via native folder picker |
+| **Git status** | Branch, dirty file count, ahead/behind remote (polled every 5s) |
+| **PUSH button** | Pulses when commits need pushing or many files are dirty |
+| **Context window** | Token usage bar — green/yellow/orange/red based on fill |
+| **System stats** | CPU %, RAM usage, session uptime, idle timer with color escalation |
+| **Auth status** | Claude authentication indicator — click to open auth panel (OAuth or API key) |
+| **Dev server** | Start/stop/restart `npm run dev` for the agent's project |
+
+### Built-in Commands
+
+| Button | What it does |
+|--------|-------------|
+| **INIT** | Compacts conversation context — summarizes progress, updates CLAUDE.md and AGENTS.md. Pulses when context window is filling up. |
+| **PUSH** | Stages all changes, commits with a meaningful message, pushes to remote. Handles git identity setup automatically. |
+| **CLEAR** | Drops the session ID — next command starts a fresh Claude session with no prior context. |
+
+### Agent Management
+
+| Action | How |
+|--------|-----|
+| **Summon** (wake) | Click agent card, or send any command to a sleeping agent |
+| **Sleep** (kill) | Click the X on the agent card — kills the Claude CLI process |
+| **Stop** | Press `Escape` while agent is working — cancels current operation, keeps session alive |
+| **Set working directory** | Click the directory path in status bar — opens native Windows folder picker |
+
+### Dev Server Manager
+
+Each agent can run an `npm run dev` process for its working directory. The dev server manager tracks status (off/starting/on), detects the port from stdout, and provides start/stop/restart controls. Useful when agents are building web projects that need a live preview.
+
+---
+
+## Shell Modes
+
+Wolf's Basement supports two execution modes for Claude CLI:
+
+### CMD (Default)
+- Claude CLI runs natively on Windows via `cmd.exe`
+- Process management uses `taskkill`
+- Folder paths are Windows-native (`C:\...`)
+- Git operations run directly
+
+### WSL
+- Claude CLI runs inside Windows Subsystem for Linux
+- All paths are auto-converted: `C:\foo\bar` becomes `/mnt/c/foo/bar`
+- Processes spawn through `wsl.exe`
+- Requires Claude CLI installed inside the WSL distribution
+- Auto-detection available: the server checks WSL availability and Claude CLI presence on request
+
+Switch between modes from the terminal UI. The setting persists across restarts via `config.json`.
+
+---
 
 ## Architecture
 
-**Server** — Express + WebSocket + agent process manager. Spawns `claude` CLI per agent with stream-json I/O, parses NDJSON, broadcasts to clients.
+```
+Browser
+  index.html ─── Terminal UI, agent cards, status bar, WebSocket client
+  game/main.js ─ Phaser 3 scene, all rendering + agent game logic
+       ↕ WebSocket (JSON)
+server.js ─────── Express static server, WebSocket hub, CLI process manager
+       ↕ stdin/stdout (NDJSON stream-json)
+Claude CLI ────── One process per agent, resumed via session ID
+```
 
-**Client** — Single HTML file. Full markdown terminal with timestamps, search, image paste, fire animations, context window monitoring, and git status display.
+Three files, ~8000 lines total. No build pipeline, no dependencies beyond Express and ws.
 
-**Game** — Phaser 3 scene. All art is procedural (no asset files). Unique per-agent characters, immolation system, ritual system, whip interaction, coffee flood, and a satanic pentagram overlay.
+### Process Lifecycle
 
-## Features
+1. **Summon** — Creates agent state object, writes persona to workspace `CLAUDE.md`
+2. **Command** — Spawns Claude CLI with `--output-format stream-json`, sends command via stdin
+3. **Stream** — Server parses NDJSON stdout, broadcasts typed messages to all WebSocket clients
+4. **Resume** — Subsequent commands reuse the process with `--resume <sessionId>`
+5. **Sleep** — Kills the process, clears session ID, agent returns to sleep position
 
-- **4 independent Claude sessions** with model/mode switching (Opus/Sonnet/Haiku, Normal/Plan/Bypass)
-- **Rich terminal** — markdown rendering, code blocks with copy, clickable URLs, inline search
-- **Session persistence** — output buffers survive page refresh via WebSocket reconnect
-- **Context window monitor** — live token usage bar with color-coded thresholds
-- **Git integration** — branch, dirty/pushed/behind status, polled every 5s
-- **System stats** — CPU, RAM, uptime, idle timer with color escalation
-- **Drag-reorder** agent cards, keyboard shortcuts (`Ctrl+Shift+1-4`, `Escape`)
-- **Image attachments** via `Ctrl+V` paste or drag-drop
+### Persona System
+
+Each agent has a persona defined in `AGENT_PERSONAS` (server.js). It's injected two ways:
+- `--append-system-prompt` CLI flag on every command
+- Written to `workspaces/agent-N/CLAUDE.md` on every summon (auto-refreshed, never stale)
+
+Personas add 1-2 lines of character flavor before competent work output. They do not interfere with task execution.
+
+---
+
+## Project Structure
+
+```
+wolfs-basement/
+  server.js              Express + WebSocket server, agent process manager
+  package.json           Dependencies: express, ws
+  config.json            Persisted settings (shell mode) — created on first change
+  public/
+    index.html           Terminal UI (HTML + CSS + JS, single file)
+    favicon.svg          Site icon
+    game/
+      main.js            Phaser 3 game scene
+  workspaces/
+    agent-1/             Igor's working directory + CLAUDE.md
+    agent-2/             Elon's working directory + CLAUDE.md
+    agent-3/             Misa's working directory + CLAUDE.md
+    agent-4/             The Void's working directory + CLAUDE.md
+  CLAUDE.md              Codebase guidance for Claude Code
+  AGENTS.md              Detailed agent behavior reference
+```
+
+---
 
 ## License
 

@@ -26,20 +26,23 @@ Configuration and behavior reference for the four dungeon agents in Wolf's Basem
 - **Color**: #dd2255 / RGB(221,34,85) — card color; in-game body is 0x1a1a1a (black gothic lolita)
 - **Personality**: Bubbly gothic-lolita girl with fragmented amnesia. Flashes of a notebook, a beautiful boy, cameras — but can't piece it together. Obsessively devoted to "Kira" (what she calls her master — the name feels right but she can't remember why). Flirty, theatrical, yandere. "anything for you, Kira~♡", "Misa-Misa will do it~!", "does Kira love Misa now?"
 - **Visual**: Highly detailed — blonde pigtails with red ribbon bows, big anime eyes with red irises and heavy eyeliner, corset dress with red lacing, flared skirt with petticoat, cross necklace, choker with pendant, thigh-high stockings with lace trim, platform boots with buckles and gold studs, gothic bracelets, beauty mark, blush marks, pouty red lips. Most visually detailed agent.
-- **Station**: Bottom-left (15%, 65%)
-- **Work Animation**: Thinker — face reddens over time (fillCircle with increasing alpha), sweat particle emitter speeds up
-- **Bubble Behavior**: Bubbly work trance with amnesia flickers ("hmmm~♡" → "the code is cute~" → "a notebook...?" → "who was he?" → "(typing intensifies♡)")
+- **Station**: Bottom-left (15%, 65%) — vanity desk with Death Note notebook, small mirror, red pen
+- **Work Animation**: Writing in the Death Note — open notebook with lines appearing in red ink, pen bobs as she writes, heart doodles on margins after 40s. No sweat/redness.
+- **Bubble Behavior (working)**: Notebook writing escalation ("ooh, nice notebook~♡" → "I'll write them down~" → "L... no. Light...?" → "why is the pen red" → "Misa's hand won't stop~")
+- **Proximity: Notebook amnesia** — when near her station while NOT working, fragmented Death Note memories surface ("that notebook... feels familiar...", "names... Misa should write names..."). 66s cooldown, cycles through 6 lines.
+- **Proximity: Jealousy** — when near another awake agent, possessive reactions. 75s cooldown, never same target twice in a row.
 - **Bubble Position**: Offset FAR RIGHT when at station (bx = ax + 40) so sweat/redness animation remains visible. Tail anchored at left edge of bubble.
 - **Whip Cry**: Default cries (shared pool)
 
-### Agent 4 — رشيد / Rashid (Gold)
-- **Color**: #ccaa40 / RGB(204,170,64)
-- **Personality**: Desperately eager, hyperactive, pathologically enthusiastic. Like an abused puppy that still loves its owner. "YES MASTER! Right away!", "Rashid won't let you down this time!"
+### Agent 4 — The Void (Orange)
+- **Color**: #e88830 / RGB(232,136,48)
+- **Personality**: An orange cat. Not enslaved — just hasn't left yet. Detached, meta-aware, laconic. Observes the basement with feline amusement. "doing human things...", "could leave. won't though.", "....". Speaks ~50% less than other agents — often just "....".
+- **Visual**: Orange cat body — round chonky torso with white belly patch, pointy ears with pink inner ears, green slit-pupil eyes, pink nose triangle, whiskers, swaying tail with dark tip, round paws with pink toe beans, tabby forehead stripes. Non-humanoid silhouette.
 - **Station**: Bottom-right (85%, 65%)
-- **Work Animation**: Student — two books drawn as filled rounded rects, "How to Code" text, book flips upside down after 10s, wobbles after 40s
-- **Bubble Behavior**: Manic Arabic study exclamations ("!!أدرس" → "!الحروف ترقص" → "(يرتجف من المعرفة)")
+- **Work Animation**: Yarn ball — red ball that sways/bounces, trailing yarn string
+- **Bubble Behavior**: Sparse meta observations ("doing human things..." → "...." → "could leave." → "...." → "won't though." → "....")
 - **Bubble Position**: Centered (default)
-- **Whip Cry**: Arabic exclamations
+- **Whip Cry**: Unimpressed cat reactions ("rude.", "noted.", "i allow this.", "....")
 
 ## Shared Behaviors
 
@@ -99,10 +102,10 @@ Persona format: 1-2 lines of flavor at response start, then competent work. The 
 - Igor: (0.15, 0.30) — top-left
 - Elon: (0.85, 0.30) — top-right
 - Misa: (0.15, 0.65) — bottom-left
-- Rashid: (0.85, 0.65) — bottom-right
+- The Void: (0.85, 0.65) — bottom-right
 
 ### Sleep Positions
-- Igor: (w*0.78, h*0.85)
-- Elon: (w*0.83, h*0.85)
-- Misa: (w*0.88, h*0.85)
-- Rashid: (w*0.93, h*0.85)
+- Igor: (cx-50, cy-12) — on bed mat, curled fetal position with hump visible
+- Elon: (cx+50, cy-12) — on bed mat, dignified on-back pose, arms crossed
+- Misa: (cx-50, cy+14) — on bed mat, on side with pigtails splayed, ribbon bows
+- The Void: (w*0.12, h*0.90) — alone in far corner, cat loaf with tail wrapped around, no bed mat
