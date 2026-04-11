@@ -1382,12 +1382,13 @@
         case 'agent_permission_denied': {
           if (!msg.denials || msg.denials.length === 0) break;
           const toolNames = msg.denials.map(d => d.tool_name).join(', ');
-          const details = msg.denials.map(d => {
+          const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+          const details = escHtml(msg.denials.map(d => {
             if (d.tool_name === 'Bash' && d.tool_input?.command) return `${d.tool_name}: ${d.tool_input.command}`;
             if (d.tool_name === 'Write' && d.tool_input?.file_path) return `${d.tool_name}: ${d.tool_input.file_path}`;
             if (d.tool_name === 'Edit' && d.tool_input?.file_path) return `${d.tool_name}: ${d.tool_input.file_path}`;
             return d.tool_name;
-          }).join(', ');
+          }).join(', '));
           const permId = 'perm-' + Date.now();
           const html = `<div class="perm-prompt" id="${permId}">` +
             `<span class="perm-icon">⚠</span> ` +
@@ -1443,6 +1444,11 @@
               lastLine._toolGroup.push(shortLabel);
               lastLine._toolFullTexts = (lastLine._toolFullTexts || [lastLine._toolFullText]);
               lastLine._toolFullTexts.push(text);
+              // Cap tool groups at 50 to prevent unbounded growth
+              if (lastLine._toolGroup.length > 50) {
+                lastLine._toolGroup = lastLine._toolGroup.slice(-40);
+                lastLine._toolFullTexts = lastLine._toolFullTexts.slice(-40);
+              }
               // Update display: show collapsed summary
               const count = lastLine._toolGroup.length;
               lastLine.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
@@ -1725,6 +1731,9 @@
     }
 
     function renderTerminal(id) {
+      // Release stale search match references before rebuilding DOM
+      _searchMatches = [];
+      _searchIdx = -1;
       const out = document.getElementById('terminal-output');
       out.innerHTML = '';
       const lines = agentState[id].termLines;

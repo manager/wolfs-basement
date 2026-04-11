@@ -503,7 +503,7 @@ function sendCommand(id, text, model, mode, images, label) {
   // Do NOT close stdin — keep open for multi-turn (permission retries)
 
   agent.process = proc;
-  agent._lastCmd = { text, model, mode, images }; // for permission retry
+  agent._lastCmd = { text, model, mode }; // for permission retry (images excluded — too large to pin)
   agent.lastOutputTime = Date.now();
   agent.lineBuf = ''; // buffer for incomplete NDJSON lines
 
@@ -914,7 +914,9 @@ function startDevServer(cwd) {
   ds.process = proc;
 
   let outputBuf = '';
+  let portFound = false;
   function parsePort(text) {
+    if (portFound) return;
     // Strip ANSI escape codes before matching (dev servers often output colored text)
     const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
     // Match common patterns: localhost:PORT, 127.0.0.1:PORT, port PORT, :PORT
@@ -922,13 +924,15 @@ function startDevServer(cwd) {
     if (m) {
       ds.port = parseInt(m[1]);
       ds.status = 'on';
+      portFound = true;
+      outputBuf = '';
       broadcastDevServer(cwd);
       console.log(`[DevServer] ${cwd} → port ${ds.port}`);
     }
   }
 
-  proc.stdout.on('data', d => { outputBuf += d.toString(); parsePort(outputBuf); });
-  proc.stderr.on('data', d => { outputBuf += d.toString(); parsePort(outputBuf); });
+  proc.stdout.on('data', d => { if (!portFound) { outputBuf += d.toString(); parsePort(outputBuf); } });
+  proc.stderr.on('data', d => { if (!portFound) { outputBuf += d.toString(); parsePort(outputBuf); } });
 
   proc.on('close', (code) => {
     console.log(`[DevServer] ${cwd} exited (code ${code})`);
@@ -998,7 +1002,7 @@ app.get('/dev-server-status', (req, res) => {
 // --- Start ---
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  ⛓️  WOLF'S BASEMENT running at http://localhost:${PORT}\n`);
 });
 

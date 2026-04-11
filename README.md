@@ -236,6 +236,18 @@ wolfs-basement/
 
 ---
 
+## Performance
+
+Wolf's Basement is designed for long sessions — hours of continuous multi-agent work without degradation.
+
+- **Flat memory profile** — All server-side buffers (agent output, CLI line parsing, dev server logs) are capped. Nothing grows unbounded. Image payloads are processed and released immediately, never pinned in memory between commands.
+- **Minimal footprint** — The server is a single Node.js process with two dependencies (Express + ws). No background workers, no ORMs, no caches. Idle CPU usage is near zero; active usage is dominated by the Claude CLI subprocesses, not the server.
+- **Client-side caps** — Terminal history is capped at 500 lines per agent. Tool call groups are capped at 50. Search state is released on every terminal rebuild. DOM growth is bounded regardless of session length.
+- **Localhost-only binding** — The server binds to `127.0.0.1`, not `0.0.0.0`. No network exposure, no auth overhead.
+- **No polling waste** — System stats poll every 3s, git status every 5s, both lightweight. WebSocket push is used for all real-time updates (agent output, status changes, dev server events). No long-polling, no SSE reconnect loops.
+
+---
+
 ## License
 
 Private.
