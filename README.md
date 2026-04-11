@@ -23,6 +23,8 @@ npm start
 
 No build step. No bundler. No framework. One `node server.js` serves everything.
 
+Copy `.env.example` to `.env` if you need to configure environment variables (optional — see the file for details).
+
 **Prerequisites:**
 - Node.js 18+
 - Claude Code CLI installed and authenticated (`claude auth login`)
@@ -250,4 +252,4 @@ Wolf's Basement is designed for long sessions — hours of continuous multi-agen
 
 ## License
 
-Private.
+MIT — see [LICENSE](LICENSE).

@@ -598,8 +598,8 @@ class RoomScene extends Phaser.Scene {
     this.agents[id] = agent;
     this.drawAgent(id);
 
-    this.time.addEvent({ delay: 80, loop: true, callback: () => this.tickAgent(id) });
-    this.time.addEvent({ delay: 500, loop: true, callback: () => this.animateZzz(id) });
+    agent._tickEvent = this.time.addEvent({ delay: 80, loop: true, callback: () => this.tickAgent(id) });
+    agent._zzzEvent = this.time.addEvent({ delay: 500, loop: true, callback: () => this.animateZzz(id) });
   }
 
   // ============ WHIP CURSOR & HIT ============
@@ -3486,12 +3486,16 @@ class RoomScene extends Phaser.Scene {
       agent.x = agent.sleepX; agent.y = agent.sleepY;
       agent.idleTime = 0;
       agent.immolation = null;
+      if (agent._tickEvent) agent._tickEvent.paused = false;
+      if (agent._zzzEvent) agent._zzzEvent.paused = false;
     }
 
     if (status === 'sleeping') {
       agent.walkTarget = null;
       agent.inRitual = false;
       agent.idleTime = 0;
+      if (agent._tickEvent) agent._tickEvent.paused = true;
+      if (agent._zzzEvent) agent._zzzEvent.paused = true;
       // If already in immolation burn/ash phase, just finish instantly
       if (agent.immolation === 'burn' || agent.immolation === 'ash') {
         this.cancelImmolation(agent);

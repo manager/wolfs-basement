@@ -2,5 +2,6 @@ node_modules/
 workspaces/
 .env
 .env.*
+!.env.example
 .claude/
 config.json

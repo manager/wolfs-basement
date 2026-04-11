@@ -1218,7 +1218,7 @@
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${protocol}//${location.host}`);
       ws.onopen = () => {
-        console.log('WS connected');
+        // WS connected
         appendToTerminal(null, 'System connected.', 'term-system');
         const lastAgent = localStorage.getItem('selectedAgent');
         if (lastAgent) {
@@ -1234,8 +1234,10 @@
           }, 50);
         }
       };
+      ws.onerror = () => {
+        appendToTerminal(null, 'Connection error — retrying...', 'term-system');
+      };
       ws.onclose = () => {
-        console.log('WS disconnected');
         setTimeout(connectWS, 2000);
       };
       ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
@@ -2635,7 +2637,7 @@
         const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: state.model, mode: state.mode };
         if (pendingImages.length > 0) {
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
-          console.log(`Sending ${msg.images.length} images, total size: ${JSON.stringify(msg).length} bytes`);
+          // Image payload: ${msg.images.length} images
         }
         const imgCount = pendingImages.length;
         const label = imgCount > 0 ? `> ${text || '(image)'} [+${imgCount} image${imgCount > 1 ? 's' : ''}]` : `> ${text}`;
@@ -2855,7 +2857,7 @@
           ramEl.style.color = data.ram < 60 ? '#60cc60' : data.ram < 85 ? '#ccaa30' : '#cc3020';
         }
         if (window.gameEvents) window.gameEvents.emit('systemStats', { cpu: data.cpu, ram: data.ram });
-      }).catch(() => {});
+      }).catch(() => { /* server unreachable, will retry on next tick */ });
     }
     tickStats();
     setInterval(tickStats, 3000);
@@ -2976,7 +2978,7 @@
           text.textContent = 'NO AUTH';
         }
         renderAuthPopup();
-      }).catch(() => {});
+      }).catch(() => { /* server unreachable, will retry on next poll */ });
     }
 
     let _authSwitchOpen = false;

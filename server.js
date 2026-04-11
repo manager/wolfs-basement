@@ -5,6 +5,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
+function debug(...args) { if (DEBUG) console.log(...args); }
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, maxPayload: 50 * 1024 * 1024 }); // 50MB for images
@@ -211,13 +214,13 @@ $dlg.Dispose()`;
   proc.stdout.on('data', d => output += d.toString());
   proc.stderr.on('data', d => stderr += d.toString());
   proc.on('close', (code) => {
-    if (stderr) console.error('[pick-folder] stderr:', stderr.trim());
-    if (code !== 0) console.error('[pick-folder] exit code:', code);
+    if (stderr) debug('[pick-folder] stderr:', stderr.trim());
+    if (code !== 0) debug('[pick-folder] exit code:', code);
     const folder = output.trim();
-    console.log('[pick-folder] stdout:', JSON.stringify(folder));
+    debug('[pick-folder] stdout:', JSON.stringify(folder));
     res.json({ folder: (folder && folder.length > 0) ? folder : null });
   });
-  proc.on('error', (err) => { console.error('[pick-folder] spawn error:', err); res.json({ folder: null }); });
+  proc.on('error', (err) => { debug('[pick-folder] spawn error:', err); res.json({ folder: null }); });
 });
 
 // --- Auth Status ---
@@ -389,11 +392,11 @@ function summonAgent(id) {
     lastTextOutput: null,
     awakeAt: Date.now(),
   });
-  _summoning.delete(id);
 
   const wsDir = agentCwd[id] || path.join(__dirname, 'workspaces', `agent-${id}`);
   broadcast({ type: 'agent_spawned', id, name: AGENT_NAMES[id], cwd: wsDir });
   setStatus(id, 'awake');
+  _summoning.delete(id);
 }
 
 function sendCommand(id, text, model, mode, images, label) {
@@ -430,7 +433,7 @@ function sendCommand(id, text, model, mode, images, label) {
 
   // Mode flags
   const effectiveMode = agent._tempBypass ? 'bypass' : mode;
-  console.log(`[Agent ${id}] Mode: ${effectiveMode}${agent._tempBypass ? ' (temp bypass)' : ''}, Model: ${model}`);
+  debug(`[Agent ${id}] Mode: ${effectiveMode}${agent._tempBypass ? ' (temp bypass)' : ''}, Model: ${model}`);
   if (effectiveMode === 'bypass') {
     args.push('--dangerously-skip-permissions');
   } else if (effectiveMode === 'plan') {
@@ -462,7 +465,7 @@ function sendCommand(id, text, model, mode, images, label) {
 
   setStatus(id, 'working');
 
-  console.log(`[Agent ${id}] Running: claude ${JSON.stringify(args)} (cwd: ${workDir}, shell: ${shellMode})`);
+  debug(`[Agent ${id}] Running: claude ${JSON.stringify(args)} (cwd: ${workDir}, shell: ${shellMode})`);
 
   let proc;
   if (shellMode === 'wsl') {
@@ -485,7 +488,7 @@ function sendCommand(id, text, model, mode, images, label) {
     });
   }
   // Send message as stream-json via stdin
-  console.log(`[Agent ${id}] Images: ${images ? images.length : 0}, Text: ${text.slice(0, 50)}`);
+  debug(`[Agent ${id}] Images: ${images ? images.length : 0}, Text: ${text.slice(0, 50)}`);
   const content = [{ type: 'text', text }];
   if (images && images.length > 0) {
     for (const img of images) {
@@ -517,7 +520,7 @@ function sendCommand(id, text, model, mode, images, label) {
 
     // Safety: cap lineBuf at 1MB to prevent unbounded growth on malformed output
     if (agent.lineBuf.length > 1024 * 1024) {
-      console.log(`[Agent ${id}] lineBuf exceeded 1MB, discarding`);
+      debug(`[Agent ${id}] lineBuf exceeded 1MB, discarding`);
       agent.lineBuf = '';
       return;
     }
@@ -600,7 +603,7 @@ function sendCommand(id, text, model, mode, images, label) {
         }
         // Detect permission denials — broadcast to client for Allow/Deny UI
         if (parsed.permission_denials && parsed.permission_denials.length > 0) {
-          console.log(`[Agent ${id}] Permission denials:`, JSON.stringify(parsed.permission_denials));
+          debug(`[Agent ${id}] Permission denials:`, JSON.stringify(parsed.permission_denials));
           broadcast({
             type: 'agent_permission_denied',
             id,
@@ -615,7 +618,7 @@ function sendCommand(id, text, model, mode, images, label) {
         const usage = parsed.usage || parsed.token_usage || null;
         const model = parsed.model || null;
         if (usage) {
-          console.log(`[Agent ${id}] Usage:`, JSON.stringify(usage));
+          debug(`[Agent ${id}] Usage:`, JSON.stringify(usage));
           agent.lastUsage = usage;
         }
         if (model) agent.lastModel = model;
@@ -646,16 +649,16 @@ function sendCommand(id, text, model, mode, images, label) {
     if (!text) return;
     // Suppress noisy hook lifecycle messages from plugins
     if (/hook.*(cancelled|failed|started|completed)/i.test(text) || /Session(End|Start).*hook/i.test(text)) {
-      console.log(`[Agent ${id}] STDERR (suppressed): ${text}`);
+      debug(`[Agent ${id}] STDERR (suppressed): ${text}`);
       return;
     }
-    console.log(`[Agent ${id}] STDERR: ${text}`);
+    debug(`[Agent ${id}] STDERR: ${text}`);
     const name = AGENT_NAMES[id] || `Agent ${id}`;
     broadcast({ type: 'agent_output', id, text: `${name} [stderr]> ${text}`, done: false, format: 'error' });
   });
 
   proc.on('close', (code) => {
-    console.log(`[Agent ${id}] Process exited with code ${code}`);
+    debug(`[Agent ${id}] Process exited with code ${code}`);
     // If a newer process has started, ignore this stale close event
     if (agent._generation !== gen) return;
     // Flush any remaining delta text into history buffer
@@ -712,7 +715,7 @@ function sleepAgent(id) {
 // --- WebSocket Handler ---
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+  debug('Client connected');
 
   // Send current state of all agents
   for (let i = 1; i <= MAX_AGENTS; i++) {
@@ -784,14 +787,14 @@ wss.on('connection', (ws) => {
             cwdAgent.cwd = msg.cwd;
             cwdAgent.sessionId = null; // new directory = fresh session
           }
-          console.log(`[Agent ${msg.id}] CWD set to: ${msg.cwd} (session cleared)`);
+          debug(`[Agent ${msg.id}] CWD set to: ${msg.cwd} (session cleared)`);
         }
         break;
       case 'stop':
         // Cancel current operation but keep agent awake with session intact
         const stopAgent = agents.get(msg.id);
         if (stopAgent && stopAgent.process) {
-          console.log(`[Agent ${msg.id}] Stopping current operation`);
+          debug(`[Agent ${msg.id}] Stopping current operation`);
           shellKill(stopAgent.process.pid);
           stopAgent.process = null;
           broadcast({ type: 'agent_output', id: msg.id, text: '', done: true });
@@ -807,7 +810,7 @@ wss.on('connection', (ws) => {
         if (paAgent && msg.tool_name) {
           if (!paAgent._allowedTools) paAgent._allowedTools = new Set();
           paAgent._allowedTools.add(msg.tool_name);
-          console.log(`[Agent ${msg.id}] Tool approved: ${msg.tool_name}, allowed: [${[...paAgent._allowedTools]}]`);
+          debug(`[Agent ${msg.id}] Tool approved: ${msg.tool_name}, allowed: [${[...paAgent._allowedTools]}]`);
           // Kill current process and retry with updated allowed-tools
           if (paAgent.process) {
             shellKill(paAgent.process.pid);
@@ -826,7 +829,7 @@ wss.on('connection', (ws) => {
         const paaAgent = agents.get(msg.id);
         if (paaAgent) {
           paaAgent._tempBypass = true;
-          console.log(`[Agent ${msg.id}] Temp bypass enabled for retry`);
+          debug(`[Agent ${msg.id}] Temp bypass enabled for retry`);
           if (paaAgent.process) {
             shellKill(paaAgent.process.pid);
             paaAgent.process = null;
@@ -855,28 +858,32 @@ wss.on('connection', (ws) => {
             if (result.available) {
               shellMode = 'wsl';
               saveConfig({ ...loadConfig(), shellMode });
-              console.log('[Shell] Switched to WSL');
+              debug('[Shell] Switched to WSL');
               broadcast({ type: 'shell_mode', mode: 'wsl' });
             } else {
               broadcast({ type: 'shell_error', error: result.reason });
               broadcast({ type: 'shell_mode', mode: shellMode }); // revert UI
             }
+          }).catch(err => {
+            debug('[Shell] WSL detection failed:', err.message);
+            broadcast({ type: 'shell_error', error: 'WSL detection failed: ' + err.message });
+            broadcast({ type: 'shell_mode', mode: shellMode }); // revert UI
           });
         } else {
           shellMode = 'cmd';
           saveConfig({ ...loadConfig(), shellMode });
-          console.log('[Shell] Switched to CMD');
+          debug('[Shell] Switched to CMD');
           broadcast({ type: 'shell_mode', mode: 'cmd' });
         }
         break;
       }
       default:
-        console.log('Unknown message type:', msg.type);
+        debug('Unknown message type:', msg.type);
     }
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected');
+    debug('Client disconnected');
   });
 });
 
@@ -927,7 +934,7 @@ function startDevServer(cwd) {
       portFound = true;
       outputBuf = '';
       broadcastDevServer(cwd);
-      console.log(`[DevServer] ${cwd} → port ${ds.port}`);
+      debug(`[DevServer] ${cwd} → port ${ds.port}`);
     }
   }
 
@@ -935,7 +942,7 @@ function startDevServer(cwd) {
   proc.stderr.on('data', d => { if (!portFound) { outputBuf += d.toString(); parsePort(outputBuf); } });
 
   proc.on('close', (code) => {
-    console.log(`[DevServer] ${cwd} exited (code ${code})`);
+    debug(`[DevServer] ${cwd} exited (code ${code})`);
     ds.process = null;
     ds.status = 'off';
     ds.port = null;
@@ -944,7 +951,7 @@ function startDevServer(cwd) {
   });
 
   proc.on('error', (err) => {
-    console.error(`[DevServer] ${cwd} error:`, err.message);
+    debug(`[DevServer] ${cwd} error:`, err.message);
     ds.process = null;
     ds.status = 'off';
     devServers.set(key, ds);
