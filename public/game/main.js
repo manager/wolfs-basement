@@ -187,10 +187,7 @@ class RoomScene extends Phaser.Scene {
         }
       }
     }
-    this.input.keyboard.on('keydown', (e) => {
-      if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      if (e.key >= '1' && e.key <= '4') selectAgent(parseInt(e.key));
-    });
+    // Agent selection keyboard shortcuts handled by document-level keydown in index.html
 
     // Handle container resize — remap all positions proportionally
     this.scale.on('resize', (gameSize) => {
@@ -3658,7 +3655,7 @@ const config = {
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [RoomScene],
   pixelArt: true, antialias: false,
-  input: { keyboard: { target: document.getElementById('game-container') } },
+  input: { keyboard: false },
 };
 
 const game = new Phaser.Game(config);

@@ -2744,7 +2744,11 @@
         stopAgentOp();
         return;
       }
-      if (e.target.id !== 'command-input' && e.target.id !== 'term-search' && e.target.tagName !== 'SELECT') {
+      // Block shortcuts when focus is inside any interactive element (inputs, buttons, selects, status bar, command bar)
+      const tag = e.target.tagName;
+      const inInteractive = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON'
+        || e.target.closest('#status-bar') || e.target.closest('#command-bar');
+      if (!inInteractive) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           document.getElementById('command-input').focus();
@@ -2762,7 +2766,6 @@
           document.getElementById('terminal-header').style.display = 'none';
           document.getElementById('terminal-output').style.display = 'none';
           document.getElementById('status-bar').style.display = 'none';
-          // Command bar label handled by MASTER > prompt
           document.getElementById('command-input').placeholder = 'Select an agent...';
           if (window.gameEvents) window.gameEvents.emit('agentSelected', null);
         }
@@ -3071,6 +3074,7 @@
       }
 
       if (d.email) rows += authRow('Account', d.email);
+      if (d.gitEmail) rows += authRow('Git Email', d.gitEmail);
       if (d.orgName && d.orgName !== d.email) rows += authRow('Org', d.orgName);
       if (d.subscriptionType) rows += authRow('Plan', d.subscriptionType.charAt(0).toUpperCase() + d.subscriptionType.slice(1));
       if (d.apiKey) rows += authRow('API Key', d.apiKey);

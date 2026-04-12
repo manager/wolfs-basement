@@ -60,13 +60,19 @@ function resolveBin(name) {
   if (process.platform !== 'win32') return name;
   try {
     const r = spawnSync('where', [name], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
-    if (r.status === 0 && r.stdout.trim()) return r.stdout.trim().split(/\r?\n/)[0];
+    if (r.status === 0 && r.stdout.trim()) {
+      const lines = r.stdout.trim().split(/\r?\n/);
+      // Prefer .cmd/.exe over extensionless entries (npm without .cmd fails with shell:true)
+      return lines.find(l => /\.(cmd|exe)$/i.test(l)) || lines[0];
+    }
   } catch {}
   return name;
 }
 const GIT_BIN = resolveBin('git');
 const CLAUDE_BIN = resolveBin('claude');
 const NPM_BIN = resolveBin('npm');
+// npm-cli.js path for shell-free npm spawning (avoids spaces-in-path and CWD hijacking)
+const NPM_CLI_JS = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 
 function shellSpawn(cmd, args, opts) {
   if (shellMode === 'wsl') {
@@ -256,6 +262,14 @@ $dlg.Dispose()`;
 let _authCache = null;
 let _authCacheTime = 0;
 
+function getGitEmail(cb) {
+  const proc = shellSpawn('git', ['config', 'user.email'], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  let out = '';
+  proc.stdout.on('data', d => out += d.toString());
+  proc.on('close', () => cb(out.trim() || null));
+  proc.on('error', () => cb(null));
+}
+
 app.get('/auth-status', (req, res) => {
   // Cache for 30s to avoid spamming CLI
   if (_authCache && Date.now() - _authCacheTime < 30000) {
@@ -265,23 +279,27 @@ app.get('/auth-status', (req, res) => {
   let out = '';
   proc.stdout.on('data', d => out += d.toString());
   proc.on('close', (code) => {
-    if (code === 0) {
-      try {
-        _authCache = JSON.parse(out.trim());
-        _authCacheTime = Date.now();
-        return res.json(_authCache);
-      } catch (e) {}
-    }
-    // Fallback: check env var
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    const fallback = {
-      loggedIn: !!apiKey,
-      authMethod: apiKey ? 'api_key' : 'none',
-      apiKey: apiKey ? apiKey.slice(0, 10) + '...' + apiKey.slice(-4) : null,
-    };
-    _authCache = fallback;
-    _authCacheTime = Date.now();
-    res.json(fallback);
+    getGitEmail((gitEmail) => {
+      if (code === 0) {
+        try {
+          _authCache = JSON.parse(out.trim());
+          if (gitEmail) _authCache.gitEmail = gitEmail;
+          _authCacheTime = Date.now();
+          return res.json(_authCache);
+        } catch (e) {}
+      }
+      // Fallback: check env var
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const fallback = {
+        loggedIn: !!apiKey,
+        authMethod: apiKey ? 'api_key' : 'none',
+        apiKey: apiKey ? apiKey.slice(0, 10) + '...' + apiKey.slice(-4) : null,
+      };
+      if (gitEmail) fallback.gitEmail = gitEmail;
+      _authCache = fallback;
+      _authCacheTime = Date.now();
+      res.json(fallback);
+    });
   });
   proc.on('error', () => {
     res.json({ loggedIn: false, authMethod: 'none' });
@@ -948,7 +966,7 @@ function startDevServer(cwd) {
   const devCwd = shellMode === 'wsl' ? winPathToWsl(cwd).replace(/'/g, "'\\''") : cwd;
   const proc = shellMode === 'wsl'
     ? spawn('wsl.exe', ['bash', '-c', `cd '${devCwd}' && npm run dev`], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
-    : spawn(NPM_BIN, ['run', 'dev'], { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    : spawn(process.execPath, [NPM_CLI_JS, 'run', 'dev'], { cwd, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
   ds.process = proc;
 
   let outputBuf = '';
