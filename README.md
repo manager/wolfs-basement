@@ -1,6 +1,7 @@
 # Wolf's Basement
-
 A visual RPG terminal multiplexer for [Claude Code](https://claude.ai/code) CLI.
+
+<img width="1918" height="988" alt="image" src="https://github.com/user-attachments/assets/e8b99f92-e958-43a3-ba09-e5295def5ac3" />
 
 Four pixel-art dungeon agents — each running an independent Claude Code session — work side by side in a procedurally drawn basement. A Phaser 3 game on the left, rich markdown terminals on the right.
 
@@ -53,6 +54,8 @@ Wolf's Basement has two view modes, toggled from the header bar:
 | **BASEMENT** | Split view — game on the left, terminal on the right. Drag the divider to resize. |
 | **TERMINAL** | Terminal only — full-width workspace, game hidden. |
 
+<img width="1919" height="991" alt="image" src="https://github.com/user-attachments/assets/bd9d2c87-a53d-4be2-93e1-b297bf465161" />
+
 Switch between them anytime. The split ratio is saved to localStorage and restored on reload.
 
 **The game is fully refresh-safe.** Press **F5** or refresh your browser at any point — agent sessions, terminal history, card order, model/mode settings, and split position all survive. If the game canvas looks off after resizing or switching modes, a quick **F5** re-renders everything cleanly. Refresh is your friend, not your enemy.
@@ -64,6 +67,8 @@ Switch between them anytime. The split ratio is saved to localStorage and restor
 The left panel is a Phaser 3 game scene — a dungeon rendered entirely with procedural draw calls (no image assets, no spritesheets). All characters, props, and effects are drawn using Phaser Graphics primitives (fillRect, fillCircle, fillTriangle, etc.) and particle emitters with generated textures.
 
 ### Agents
+
+<img width="364" height="296" alt="image" src="https://github.com/user-attachments/assets/2024fb14-a688-40ce-888e-f585f5bfc4a5" />
 
 | # | Name | Identity | Color |
 |---|------|----------|-------|
@@ -81,6 +86,7 @@ Each agent has:
 - A unique sleeping pose
 
 ### Agent Behaviors
+<img width="401" height="326" alt="image" src="https://github.com/user-attachments/assets/51cb2b16-ac41-41ca-82da-2ea7bde0fcb6" />
 
 **Walking** — Awake agents wander the dungeon randomly, pausing between walks.
 
@@ -103,12 +109,13 @@ Each agent has:
 ---
 
 ## The Terminal
-
 The right panel is a multi-tab terminal interface — one per agent. This is the primary workspace for issuing commands to Claude Code sessions.
 
 ### Core Functionality
 
 **Agent Selection** — Click an agent card or press `1-4` to switch terminals. `Ctrl+Shift+1-4` switches by visual card position (respects drag-reorder).
+<img width="1066" height="121" alt="image" src="https://github.com/user-attachments/assets/586ae5cc-485b-4a21-a558-76cda76d23ef" />
+
 
 **Command Input** — Type in the input bar and press Enter to send a command to the selected agent's Claude session. Press `Enter` or `Space` from anywhere to focus the input.
 
@@ -150,6 +157,7 @@ Output is rendered as rich markdown with:
 - Consecutive tool calls collapsed into expandable groups
 
 ### Status Bar
+<img width="1065" height="145" alt="image" src="https://github.com/user-attachments/assets/7b40eb9f-fa3d-4e40-82a6-734049d664d6" />
 
 The bottom status bar (per-agent) displays:
 
@@ -165,6 +173,10 @@ The bottom status bar (per-agent) displays:
 | **System stats** | CPU %, RAM usage, session uptime, idle timer with color escalation |
 | **Auth status** | Claude authentication indicator — click to open auth panel (OAuth or API key) |
 | **Dev server** | Start/stop/restart `npm run dev` for the agent's project |
+
+Top-right auth status:
+<img width="537" height="387" alt="image" src="https://github.com/user-attachments/assets/9a433b88-c347-4558-8197-78be7dad215b" />
+
 
 ### Built-in Commands
 
