@@ -36,6 +36,12 @@ Copy `.env.example` to `.env` if you need to configure environment variables (op
 - Claude Code CLI installed and authenticated (`claude auth login`)
 - For WSL mode: WSL installed with Claude CLI available inside it
 
+**Run built-in tests:** Open the browser console (F12) and run:
+```js
+await WolfTests.run()
+```
+This runs 249 terminal UI tests and prints a table showing every feature and its status. You can also run a specific section, e.g. `await WolfTests.run('statusbar')`.
+
 ---
 
 ## View Modes
