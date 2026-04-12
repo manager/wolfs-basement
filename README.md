@@ -6,6 +6,8 @@ Four pixel-art dungeon agents — each running an independent Claude Code sessio
 
 **Why this exists.** Running multiple Claude Code sessions across separate terminals gets messy fast — wrong tab, wrong command, wrong project. During long sessions, the clutter compounds and human error creeps in. Wolf's Basement puts all your agents, terminals, and dev servers into a single browser window so you can see everything at once and stay in control.
 
+**The game isn't decoration.** The pixel-art dungeon is a live dashboard — you can tell at a glance which agents are working, which are idle, and for how long. An agent sitting around too long? You'll notice it wandering aimlessly before you'd ever catch it in a status bar. Over time, these visual cues help you decide which agents to keep alive and which to kill to free up resources.
+
 **Built for humans, not just developers.** The interface was designed with a strong focus on UX — you don't need to be a terminal power-user or know how CLIs work to use it. Everything is visual, intuitive, and self-explanatory. Click things, drag things, read the status bar. If you can use a browser, you can run four AI agents.
 
 ![Node](https://img.shields.io/badge/node-%3E%3D18-333?logo=node.js)
