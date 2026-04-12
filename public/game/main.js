@@ -191,6 +191,88 @@ class RoomScene extends Phaser.Scene {
       if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.key >= '1' && e.key <= '4') selectAgent(parseInt(e.key));
     });
+
+    // Handle container resize — remap all positions proportionally
+    this.scale.on('resize', (gameSize) => {
+      const nw = gameSize.width, nh = gameSize.height;
+      if (nw < 10 || nh < 10) return; // ignore degenerate sizes
+      const ow = this.roomW, oh = this.roomH;
+      if (Math.abs(nw - ow) < 2 && Math.abs(nh - oh) < 2) return; // skip negligible changes
+      this.handleResize(ow, oh, nw, nh);
+    });
+  }
+
+  // ============ RESIZE HANDLER ============
+  handleResize(ow, oh, nw, nh) {
+    const sx = nw / ow, sy = nh / oh;
+    this.roomW = nw;
+    this.roomH = nh;
+
+    // Pentagram
+    this.pentagramX = nw * 0.50;
+    this.pentagramY = nh * 0.52;
+
+    // Walk bounds
+    this.walkBounds = { x: 50, y: 150, w: nw - 100, h: nh - 210 };
+
+    // World objects
+    const wo = this.worldObjects;
+    wo.stations.coffee.x  = nw*0.15; wo.stations.coffee.y  = nh*0.30;
+    wo.stations.math.x    = nw*0.85; wo.stations.math.y    = nh*0.30;
+    wo.stations.thinker.x = nw*0.15; wo.stations.thinker.y = nh*0.65;
+    wo.stations.student.x = nw*0.85; wo.stations.student.y = nh*0.65;
+    wo.cpu.x = nw*0.35; wo.cpu.y = nh*0.42;
+    wo.ram.x = nw*0.62; wo.ram.y = nh*0.63;
+    wo.pentagram.x = nw*0.50; wo.pentagram.y = nh*0.52;
+
+    // Station positions
+    if (this.stationPositions) {
+      this.stationPositions[0] = { x: nw*0.15, y: nh*0.30 };
+      this.stationPositions[1] = { x: nw*0.85, y: nh*0.30 };
+      this.stationPositions[2] = { x: nw*0.15, y: nh*0.65 };
+      this.stationPositions[3] = { x: nw*0.85, y: nh*0.65 };
+    }
+
+    // Blood text positions
+    if (this._bloodCpu) this._bloodCpu.setPosition(nw*0.35, nh*0.42);
+    if (this._bloodRam) this._bloodRam.setPosition(nw*0.62, nh*0.63);
+
+    // Sleep positions
+    const sleepPos = this.getSleepPositions(nw, nh);
+
+    // Remap each agent
+    for (let i = 1; i <= 4; i++) {
+      const agent = this.agents[i];
+      if (!agent) continue;
+
+      // Remap home (station) and sleep positions
+      agent.homeX = this.stationPositions[i-1].x;
+      agent.homeY = this.stationPositions[i-1].y;
+      agent.sleepX = sleepPos[i-1][0];
+      agent.sleepY = sleepPos[i-1][1];
+
+      // Remap current position proportionally
+      agent.x *= sx;
+      agent.y *= sy;
+
+      // Remap walk target if active
+      if (agent.walkTarget) {
+        agent.walkTarget.x *= sx;
+        agent.walkTarget.y *= sy;
+      }
+
+      // Remap yarn ball if active
+      if (agent._yarn) {
+        agent._yarn.x *= sx;
+        agent._yarn.y *= sy;
+      }
+
+      // Update zzz text position
+      if (agent.sprites.zzz) agent.sprites.zzz.setPosition(agent.sleepX + 20*S, agent.sleepY - 8);
+
+      // Redraw agent at new position
+      this.drawAgent(i);
+    }
   }
 
   // ============ BACKGROUND ============
@@ -814,8 +896,10 @@ class RoomScene extends Phaser.Scene {
       this.whipRapidHits[id] = [];
       // Show "I OBEY" bubble, then fade it after 1.5s
       this.showBubble(agent, 'I OBEY');
+      agent._activeBubble = 'I OBEY';
       this.time.delayedCall(1500, () => {
         if (agent._fakeWorking && agent.status === 'working') {
+          agent._activeBubble = null;
           this.hideBubble(agent);
         }
       });
@@ -898,10 +982,12 @@ class RoomScene extends Phaser.Scene {
     agent.sprites.bubbleText.setAlpha(1);
 
     this.showBubble(agent, agent._whipCryText);
+    agent._activeBubble = agent._whipCryText;
 
     // After 2 seconds, smoothly fade out over 0.8s
     agent._whipFadeTimer = this.time.delayedCall(2000, () => {
       if (agent.status === 'working') return; // work anims handle bubbles
+      agent._activeBubble = null;
       agent._whipFadeTween = this.tweens.add({
         targets: [agent.sprites.bubble, agent.sprites.bubbleText],
         alpha: 0,
@@ -1011,9 +1097,11 @@ class RoomScene extends Phaser.Scene {
     agent.sprites.bubbleText.setAlpha(1);
 
     this.showBubble(agent, petLines[agent._petCryIdx]);
+    agent._activeBubble = petLines[agent._petCryIdx];
 
     agent._whipFadeTimer = this.time.delayedCall(2000, () => {
       if (agent.status === 'working') return;
+      agent._activeBubble = null;
       agent._whipFadeTween = this.tweens.add({
         targets: [agent.sprites.bubble, agent.sprites.bubbleText],
         alpha: 0, duration: 800, ease: 'Power2',
@@ -1065,6 +1153,11 @@ class RoomScene extends Phaser.Scene {
   tickAgent(id) {
     const agent = this.agents[id];
     if (!agent || agent.status === 'sleeping') return;
+
+    // Reposition transient bubbles (whip/pet/respawn) so they follow the agent
+    if (agent._activeBubble) {
+      this.showBubble(agent, agent._activeBubble);
+    }
 
     // Freeze agent during death burn — no walking, no actions
     if (agent._deathBurn) return;
@@ -1400,13 +1493,22 @@ class RoomScene extends Phaser.Scene {
   _flingYarn(agent) {
     const yarn = agent._yarn;
     const wb = this.walkBounds;
-    // Pick a random distant target and fling toward it
-    const tx = wb.x + 40 + Math.random() * (wb.w - 80);
-    const ty = wb.y + 30 + Math.random() * (wb.h - 60);
-    const fdx = tx - yarn.x, fdy = ty - yarn.y;
-    const fdist = Math.sqrt(fdx*fdx + fdy*fdy);
+    // Pick a random target that's far enough from the cat
+    const minDist = Math.max(wb.w, wb.h) * 0.35;
+    let tx, ty, fdx, fdy, fdist;
+    let attempts = 0;
+    do {
+      tx = wb.x + 40 + Math.random() * (wb.w - 80);
+      ty = wb.y + 30 + Math.random() * (wb.h - 60);
+      fdx = tx - agent.x;
+      fdy = ty - agent.y;
+      fdist = Math.sqrt(fdx*fdx + fdy*fdy);
+      attempts++;
+    } while (fdist < minDist && attempts < 20);
+    fdx = tx - yarn.x; fdy = ty - yarn.y;
+    fdist = Math.sqrt(fdx*fdx + fdy*fdy);
     // Strong force — should travel far before friction stops it
-    const force = 5 + Math.random() * 4;
+    const force = 6.5 + Math.random() * 5.2;
     yarn.vx = (fdx / fdist) * force;
     yarn.vy = (fdy / fdist) * force;
     yarn.settled = false;
@@ -1575,9 +1677,11 @@ class RoomScene extends Phaser.Scene {
           agent.walkFrame = 0;
           agent.sprites.label.setVisible(true);
           this.drawAgent(agent.id);
-          this.showBubble(agent, agent.id === 3 ? 'Misa is back~♡' : agent.id === 4 ? 'still here.' : 'ugh...');
+          const respawnText = agent.id === 3 ? 'Misa is back~♡' : agent.id === 4 ? 'still here.' : 'ugh...';
+          this.showBubble(agent, respawnText);
+          agent._activeBubble = respawnText;
           // Clear bubble after 2s
-          this.time.delayedCall(2000, () => this.hideBubble(agent));
+          this.time.delayedCall(2000, () => { agent._activeBubble = null; this.hideBubble(agent); });
           this.hideSatanicPentagram();
         }
         break;
@@ -3428,7 +3532,7 @@ class RoomScene extends Phaser.Scene {
     bt.setVisible(true);
   }
 
-  hideBubble(agent) { agent.sprites.bubble.clear(); agent.sprites.bubbleText.setVisible(false); }
+  hideBubble(agent) { agent._activeBubble = null; agent.sprites.bubble.clear(); agent.sprites.bubbleText.setVisible(false); }
 
   animateZzz(id) {
     const agent = this.agents[id];

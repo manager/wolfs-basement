@@ -84,6 +84,20 @@ Both mechanisms ensure the persona survives session resumption and workspace res
 - Cleanup paths for work-end exist in 3 places: whip cancel, fake-work timeout, and status-change handler. All three must be updated when adding per-agent cleanup (see `cleanupCoffee`, `_cleanupYarn`, `_misaNotebookGfx` patterns)
 - The Void (agent 4) overrides the normal work flow entirely — `_tickVoidYarn` replaces walk-to-station with yarn-chase physics
 - Bubble text escalation uses `[elapsedThreshold, text]` arrays scanned in reverse
+- Transient bubbles (whip/pet/respawn) use `agent._activeBubble` for tick-based repositioning — set text on show, clear on hide/fade. `hideBubble()` always clears `_activeBubble`.
+- WebSocket sends use `wsSend(obj)` wrapper (not `ws.send` directly) — guards against `readyState !== OPEN`. **Never replace `ws.send` inside `wsSend` itself.**
+- `renderTerminal(id)` guards `id !== selectedAgent` to prevent delayed callbacks from wiping another agent's visible terminal
+- Permission prompt HTML stored in `termLines` buffer — `_updatePermInBuffer(permId, newHTML)` syncs DOM changes back to the buffer so they survive terminal rebuilds
+- `selectAgent(id)` returns early if `id === selectedAgent` to prevent re-selecting the same agent (e.g., game click) from wiping the command input
+- Agent card layout uses `flex-basis: 100%` on `.card-status` and `.card-project` to force consistent row structure across all cards at any width. Icon+name wrapped in `.card-identity` (inline-flex, nowrap) to prevent splitting.
+
+### Split divider
+
+A draggable `#split-divider` between game and terminal panels. `#game-container` uses `flex: none` with explicit width %; `#dispatch-panel` uses `flex: 1`. Ratio persisted to `localStorage('splitPct')`. Clamped 20–80%. Double-click resets to 60%. Game `handleResize()` remaps all positions proportionally on Phaser `scale.resize` event.
+
+### Resize handling (game)
+
+`handleResize(ow, oh, nw, nh)` in main.js remaps: walkBounds, pentagram, worldObjects, stationPositions, blood text positions, and all agent positions (current x/y, homeX/Y, sleepX/Y, walkTarget, yarn ball) using proportional scaling. Called via `this.scale.on('resize', ...)`. Scale factor `S = 1.8` is a constant, not resized.
 
 ## Agents quick reference
 

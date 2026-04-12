@@ -969,8 +969,8 @@ function startDevServer(cwd) {
     }
   }
 
-  proc.stdout.on('data', d => { if (!portFound) { outputBuf += d.toString(); parsePort(outputBuf); } });
-  proc.stderr.on('data', d => { if (!portFound) { outputBuf += d.toString(); parsePort(outputBuf); } });
+  proc.stdout.on('data', d => { if (!portFound && outputBuf.length < 10240) { outputBuf += d.toString(); parsePort(outputBuf); } });
+  proc.stderr.on('data', d => { if (!portFound && outputBuf.length < 10240) { outputBuf += d.toString(); parsePort(outputBuf); } });
 
   proc.on('close', (code) => {
     debug(`[DevServer] ${cwd} exited (code ${code})`);

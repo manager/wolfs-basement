@@ -12,22 +12,53 @@
 
     #app { display: flex; width: 100%; height: 100%; }
 
-    #game-container { width: 60%; height: 100%; position: relative; background: #080808; transition: width 0.3s ease; }
+    #game-container { flex: none; width: 60%; height: 100%; position: relative; background: #080808; }
     #game-container canvas { width: 100% !important; height: 100% !important; display: block; }
 
     body.terminal-mode #game-container { display: none; }
+    body.terminal-mode #split-divider { display: none; }
     body.terminal-mode #dispatch-panel { width: 100%; border-left: none; }
+
+    #split-divider {
+      width: 6px;
+      cursor: col-resize;
+      background: #1a0e08;
+      border-left: 1px solid #2a1810;
+      border-right: 1px solid #2a1810;
+      position: relative;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+    #split-divider:hover, #split-divider.dragging {
+      background: #3a1a10;
+      border-color: #6a3020;
+    }
+    #split-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px; height: 32px;
+      background: #4a2818;
+      border-radius: 1px;
+    }
+    #split-divider:hover::after, #split-divider.dragging::after {
+      background: #8a4020;
+    }
+    body.split-dragging { cursor: col-resize !important; user-select: none !important; }
+    body.split-dragging iframe, body.split-dragging canvas { pointer-events: none !important; }
 
     /* =============================================
        RIGHT PANEL
        ============================================= */
     #dispatch-panel {
-      width: 40%;
+      flex: 1;
+      min-width: 0;
       height: 100%;
       display: flex;
       flex-direction: column;
       background: #0c0806;
-      border-left: 2px solid #2a1008;
+      border-left: none;
       position: relative;
       overflow: hidden;
     }
@@ -287,6 +318,13 @@
       box-shadow: 0 0 15px rgba(var(--agent-color-rgb), 0.2), inset 0 0 20px rgba(var(--agent-color-rgb), 0.05);
     }
 
+    .agent-card .card-identity {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
     .agent-card .card-icon {
       font-size: 16px;
       line-height: 1;
@@ -342,6 +380,7 @@
       letter-spacing: 2px;
       padding: 2px 6px;
       border-radius: 2px;
+      flex-basis: 100%;
     }
 
     .agent-card .card-project {
@@ -349,6 +388,7 @@
       font-size: 9px;
       color: #6a5a40;
       letter-spacing: 1px;
+      flex-basis: 100%;
     }
 
     .card-status.sleeping { color: #4a3a30; background: #1a1210; border: 1px solid #2a1a14; }
@@ -997,6 +1037,7 @@
 <body>
   <div id="app">
     <div id="game-container"></div>
+    <div id="split-divider"></div>
     <div id="dispatch-panel">
       <!-- HEADER -->
       <div id="dispatch-header">
@@ -1023,8 +1064,8 @@
                style="--agent-color: #cc4040; --agent-color-rgb: 204,64,64;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(1)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128367;</span>
-              <span class="card-name">IGOR</span>
+              <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128367;</span>
+              <span class="card-name">IGOR</span></span>
               <span class="card-status sleeping" id="card-status-1">SLEEPING</span>
               <span class="card-project" id="card-project-1"></span>
             </div>
@@ -1033,8 +1074,8 @@
                style="--agent-color: #6090cc; --agent-color-rgb: 96,144,204;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(2)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#9939;</span>
-              <span class="card-name">ELON</span>
+              <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#9939;</span>
+              <span class="card-name">ELON</span></span>
               <span class="card-status sleeping" id="card-status-2">SLEEPING</span>
               <span class="card-project" id="card-project-2"></span>
             </div>
@@ -1043,8 +1084,8 @@
                style="--agent-color: #bb55dd; --agent-color-rgb: 187,85,221;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">👑</span>
-              <span class="card-name">MISA</span>
+              <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">👑</span>
+              <span class="card-name">MISA</span></span>
               <span class="card-status sleeping" id="card-status-3">SLEEPING</span>
               <span class="card-project" id="card-project-3"></span>
             </div>
@@ -1053,8 +1094,8 @@
                style="--agent-color: #e88830; --agent-color-rgb: 232,136,48;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(4)" title="Kill">x</div>
             <div class="card-info">
-              <span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🐈</span>
-              <span class="card-name">THE VOID</span>
+              <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🐈</span>
+              <span class="card-name">THE VOID</span></span>
               <span class="card-status sleeping" id="card-status-4">SLEEPING</span>
               <span class="card-project" id="card-project-4"></span>
             </div>
@@ -1214,6 +1255,11 @@
     const AGENT_COLORS = { 1: '#cc4040', 2: '#6090cc', 3: '#bb55dd', 4: '#e88830' };
 
     // ===== WEBSOCKET =====
+    function wsSend(obj) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(obj));
+      }
+    }
     function connectWS() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${protocol}//${location.host}`);
@@ -1297,7 +1343,7 @@
           agentState[msg.id].idleSince = Date.now();
           updateCardStatus(msg.id);
           appendToTerminal(msg.id, `[${AGENT_SHORT[msg.id]} awakened]`, 'term-system');
-          ws.send(JSON.stringify({ type: 'user_cmd', id: msg.id, text: `[${AGENT_SHORT[msg.id]} awakened]`, cls: 'term-system' }));
+          wsSend({ type: 'user_cmd', id: msg.id, text: `[${AGENT_SHORT[msg.id]} awakened]`, cls: 'term-system' });
           if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'awake' });
           if (selectedAgent === msg.id) { updateTerminalHeader(); updateStatusBar(); }
           break;
@@ -1392,10 +1438,11 @@
             return d.tool_name;
           }).join(', '));
           const permId = 'perm-' + Date.now();
+          const safeToolName = escHtml(msg.denials[0].tool_name).replace(/'/g, '&#39;');
           const html = `<div class="perm-prompt" id="${permId}">` +
             `<span class="perm-icon">⚠</span> ` +
             `<span class="perm-text">Permission denied: <strong>${details}</strong></span>` +
-            `<button class="perm-btn perm-allow" onclick="permissionAllow(${msg.id}, '${msg.denials[0].tool_name}', '${permId}')">ALLOW</button>` +
+            `<button class="perm-btn perm-allow" onclick="permissionAllow(${msg.id}, '${safeToolName}', '${permId}')">ALLOW</button>` +
             `<button class="perm-btn perm-allow-all" onclick="permissionAllowAll(${msg.id}, '${permId}')">ALLOW ALL</button>` +
             `<button class="perm-btn perm-deny" onclick="permissionDeny('${permId}')">DENY</button>` +
             `</div>`;
@@ -1714,6 +1761,9 @@
         btn.textContent = 'COPIED';
         btn.classList.add('copied');
         setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('copied'); }, 1500);
+      }).catch(() => {
+        btn.textContent = 'FAILED';
+        setTimeout(() => { btn.textContent = 'COPY'; }, 1500);
       });
     }
 
@@ -1733,6 +1783,8 @@
     }
 
     function renderTerminal(id) {
+      // Only render if this agent's terminal is currently visible
+      if (id !== selectedAgent) return;
       // Release stale search match references before rebuilding DOM
       _searchMatches = [];
       _searchIdx = -1;
@@ -1989,9 +2041,11 @@
 
     // ===== AGENT SELECTION =====
     function selectAgent(id) {
+      // If re-selecting the same agent (e.g. game click/whip), don't touch input
+      if (selectedAgent === id) return;
       // Save previous agent's input text before switching
       const input = document.getElementById('command-input');
-      if (selectedAgent && selectedAgent !== id) {
+      if (selectedAgent) {
         _agentInputText[selectedAgent] = input.value;
       }
       selectedAgent = id;
@@ -2045,7 +2099,7 @@
       if (!selectedAgent) return;
       const state = agentState[selectedAgent];
       if (state.status !== 'working') return;
-      ws.send(JSON.stringify({ type: 'stop', id: selectedAgent }));
+      wsSend({ type: 'stop', id: selectedAgent });
       removeFireIndicator(selectedAgent);
       appendToTerminal(selectedAgent, '[Operation cancelled]', 'term-system');
     }
@@ -2128,7 +2182,7 @@
         // Not viewing this agent's terminal — just clear silently
         agentState[id].termLines = [];
       }
-      ws.send(JSON.stringify({ type: 'sleep', id }));
+      wsSend({ type: 'sleep', id });
     }
 
     function saveAgentSettings() {
@@ -2156,7 +2210,7 @@
       if (!selectedAgent) return;
       agentState[selectedAgent].model = model;
       // Clear session so next command uses new model
-      ws.send(JSON.stringify({ type: 'clear', id: selectedAgent }));
+      wsSend({ type: 'clear', id: selectedAgent });
       agentState[selectedAgent].sessionId = null;
       appendToTerminal(selectedAgent, `[Model set to ${model} — session reset]`, 'term-system');
       saveAgentSettings();
@@ -2295,7 +2349,7 @@
     }
 
     function finalizeClear(agentId) {
-      ws.send(JSON.stringify({ type: 'clear', id: agentId }));
+      wsSend({ type: 'clear', id: agentId });
       agentState[agentId].termLines = [];
       agentState[agentId].sessionId = null;
       agentState[agentId].tokensUsed = 0;
@@ -2317,7 +2371,7 @@
         el.textContent = 'Path copied!';
         el.style.opacity = '0.7';
         setTimeout(() => { el.textContent = orig; el.style.opacity = '1'; }, 1200);
-      });
+      }).catch(() => { /* clipboard permission denied — silent */ });
     }
 
     function editCwd() {
@@ -2337,21 +2391,21 @@
           if (data.folder && data.folder !== current) {
             const state = agentState[agentId];
             state.cwd = data.folder;
-            ws.send(JSON.stringify({ type: 'set_cwd', id: agentId, cwd: data.folder }));
+            wsSend({ type: 'set_cwd', id: agentId, cwd: data.folder });
             cwdEl.textContent = data.folder;
             cwdEl.title = data.folder;
             cwdEl.classList.remove('sb-cwd-empty');
             appendToTerminal(agentId, `[Working directory set to ${data.folder}]`, 'term-system');
-            ws.send(JSON.stringify({ type: 'user_cmd', id: agentId, text: `[Working directory set to ${data.folder}]`, cls: 'term-system' }));
+            wsSend({ type: 'user_cmd', id: agentId, text: `[Working directory set to ${data.folder}]`, cls: 'term-system' });
 
             // Auto-send a command so the agent acknowledges the new project
             const modeLabels = { normal: 'Normal (ask permissions)', plan: 'Plan (read-only, no changes)', bypass: 'Bypass (full access, no permission prompts)' };
             const modeDesc = modeLabels[state.mode] || state.mode;
             const intro = `We will now work on the project in this folder: ${data.folder}. Look around, read CLAUDE.md or README if they exist, and briefly tell me what this project is. Also confirm: you are running as model "${state.model}" in "${modeDesc}" mode. Be concise — 2-3 sentences about the project, then one line confirming your model and mode.`;
             if (state.status === 'sleeping') {
-              ws.send(JSON.stringify({ type: 'summon', id: agentId }));
+              wsSend({ type: 'summon', id: agentId });
             }
-            ws.send(JSON.stringify({ type: 'command', id: agentId, text: intro, model: state.model, mode: state.mode, label: `> cd ${data.folder}` }));
+            wsSend({ type: 'command', id: agentId, text: intro, model: state.model, mode: state.mode, label: `> cd ${data.folder}` });
             appendToTerminal(agentId, `> cd ${data.folder}`, 'term-cmd');
           } else {
             // Cancelled or same folder — restore proper display
@@ -2385,9 +2439,9 @@
       const state = agentState[selectedAgent];
       const initPrompt = 'Compact our conversation: summarize key context, decisions, and progress so far. Update CLAUDE.md with current project state, architecture notes, and any conventions discovered. If an AGENTS.md exists, update it too. Keep all summaries concise and useful for resuming work later. Preserve any file paths, config, or decisions that would be costly to re-derive.';
       if (state.status === 'sleeping') {
-        ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+        wsSend({ type: 'summon', id: selectedAgent });
       }
-      ws.send(JSON.stringify({ type: 'command', id: selectedAgent, text: initPrompt, model: state.model, mode: state.mode, label: '> /init' }));
+      wsSend({ type: 'command', id: selectedAgent, text: initPrompt, model: state.model, mode: state.mode, label: '> /init' });
       appendToTerminal(selectedAgent, '> /init', 'term-cmd');
       showStarburst();
     }
@@ -2396,10 +2450,10 @@
       if (!selectedAgent) return;
       const state = agentState[selectedAgent];
       if (state.status === 'sleeping') {
-        ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+        wsSend({ type: 'summon', id: selectedAgent });
       }
       const prompt = 'Save and push my work. Steps: 1) Run git status and git diff to see all changes. 2) If there are uncommitted changes, stage them all with git add, write a clear meaningful commit message summarizing what changed and why, and commit. 3) Push to the remote with git push. 4) If git identity is not configured, use "manager" as name and "manager@users.noreply.github.com" as email (repo-level only, not global). 5) Report what you did briefly. If there is nothing to commit or push, just say so.';
-      ws.send(JSON.stringify({ type: 'command', id: selectedAgent, text: prompt, model: state.model, mode: state.mode, label: '> /push' }));
+      wsSend({ type: 'command', id: selectedAgent, text: prompt, model: state.model, mode: state.mode, label: '> /push' });
       appendToTerminal(selectedAgent, '> /push', 'term-cmd');
     }
 
@@ -2527,19 +2581,36 @@
     }
 
     // ===== PERMISSION BUTTONS =====
+    function _updatePermInBuffer(permId, newHTML) {
+      for (let aid = 1; aid <= 4; aid++) {
+        const lines = agentState[aid].termLines;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].rawHTML && lines[i].text.includes(permId)) {
+            lines[i].text = `<div class="perm-prompt" id="${permId}">${newHTML}</div>`;
+            return;
+          }
+        }
+      }
+    }
     function permissionAllow(agentId, toolName, permId) {
-      ws.send(JSON.stringify({ type: 'permission_allow', id: agentId, tool_name: toolName }));
+      wsSend({ type: 'permission_allow', id: agentId, tool_name: toolName });
+      const newHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${toolName}</strong> — resuming...</span>`;
       const el = document.getElementById(permId);
-      if (el) el.innerHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${toolName}</strong> — resuming...</span>`;
+      if (el) el.innerHTML = newHTML;
+      _updatePermInBuffer(permId, newHTML);
     }
     function permissionAllowAll(agentId, permId) {
-      ws.send(JSON.stringify({ type: 'permission_allow_all', id: agentId }));
+      wsSend({ type: 'permission_allow_all', id: agentId });
+      const newHTML = '<span class="perm-icon">✓</span> <span class="perm-text">All tools allowed — resuming...</span>';
       const el = document.getElementById(permId);
-      if (el) el.innerHTML = '<span class="perm-icon">✓</span> <span class="perm-text">All tools allowed — resuming...</span>';
+      if (el) el.innerHTML = newHTML;
+      _updatePermInBuffer(permId, newHTML);
     }
     function permissionDeny(permId) {
+      const newHTML = '<span class="perm-icon">✗</span> <span class="perm-text" style="color:#4a3a30">Permission denied</span>';
       const el = document.getElementById(permId);
-      if (el) el.innerHTML = '<span class="perm-icon">✗</span> <span class="perm-text" style="color:#4a3a30">Permission denied</span>';
+      if (el) el.innerHTML = newHTML;
+      _updatePermInBuffer(permId, newHTML);
     }
 
     // ===== PASTE / ATTACHMENTS =====
@@ -2593,6 +2664,7 @@
             updateAttachmentIndicator();
             document.getElementById('command-input').focus();
           };
+          reader.onerror = () => { /* file unreadable — ignore silently */ };
           reader.readAsDataURL(file);
         }
       }
@@ -2617,6 +2689,7 @@
             });
             updateAttachmentIndicator();
           };
+          reader.onerror = () => { /* file unreadable — ignore silently */ };
           reader.readAsDataURL(file);
         }
       }
@@ -2632,7 +2705,7 @@
         const state = agentState[selectedAgent];
         // Auto-summon if sleeping — server handles sequencing
         if (state.status === 'sleeping') {
-          ws.send(JSON.stringify({ type: 'summon', id: selectedAgent }));
+          wsSend({ type: 'summon', id: selectedAgent });
         }
         const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: state.model, mode: state.mode };
         if (pendingImages.length > 0) {
@@ -2642,7 +2715,7 @@
         const imgCount = pendingImages.length;
         const label = imgCount > 0 ? `> ${text || '(image)'} [+${imgCount} image${imgCount > 1 ? 's' : ''}]` : `> ${text}`;
         msg.label = label; // include display label so server stores it in history
-        ws.send(JSON.stringify(msg));
+        wsSend(msg);
         agentState[selectedAgent].messageCount++;
         appendToTerminal(selectedAgent, label, 'term-cmd');
         // Always scroll to bottom when the user sends a message
@@ -2949,7 +3022,7 @@
       if (mode === _shellMode) return; // already selected, just close
       const el = document.getElementById('shell-mode-text');
       if (el) { el.textContent = '...'; el.style.color = '#ccaa40'; }
-      ws.send(JSON.stringify({ type: 'set_shell', mode: mode }));
+      wsSend({ type: 'set_shell', mode: mode });
     }
 
     // close dropdown when clicking elsewhere
@@ -3028,7 +3101,8 @@
     }
 
     function authRow(label, value, cls) {
-      return `<div class="auth-row"><span class="auth-label">${label}</span><span class="auth-value${cls ? ' ' + cls : ''}" title="${value}">${value}</span></div>`;
+      const v = escapeHtml(value);
+      return `<div class="auth-row"><span class="auth-label">${escapeHtml(label)}</span><span class="auth-value${cls ? ' ' + cls : ''}" title="${v}">${v}</span></div>`;
     }
 
     function formatAuthMethod(m) {
@@ -3157,7 +3231,7 @@
       const cwd = agentState[selectedAgent].cwd;
       if (!cwd) return;
       closeServerMenu();
-      ws.send(JSON.stringify({ type: 'dev_server', action, cwd }));
+      wsSend({ type: 'dev_server', action, cwd });
     }
 
     // Listen for dev server status broadcasts
@@ -3330,6 +3404,80 @@
       });
     })();
 
+    // ===== SPLIT DIVIDER DRAG =====
+    (function initSplitDivider() {
+      const divider = document.getElementById('split-divider');
+      const gameEl = document.getElementById('game-container');
+      const DEFAULT_PCT = 60;
+      const MIN_PCT = 20;
+      const MAX_PCT = 80;
+
+      function applySplit(pct) {
+        gameEl.style.width = pct + '%';
+      }
+
+      // Restore saved split on load
+      const savedPct = parseFloat(localStorage.getItem('splitPct'));
+      if (savedPct >= MIN_PCT && savedPct <= MAX_PCT) {
+        applySplit(savedPct);
+      }
+
+      // Expose for view mode toggle
+      window._applySplitFromStorage = function() {
+        const p = parseFloat(localStorage.getItem('splitPct'));
+        applySplit(p >= MIN_PCT && p <= MAX_PCT ? p : DEFAULT_PCT);
+      };
+
+      let dragging = false;
+
+      function onPointerDown(e) {
+        e.preventDefault();
+        dragging = true;
+        divider.classList.add('dragging');
+        document.body.classList.add('split-dragging');
+        document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('mouseup', onPointerUp);
+      }
+
+      function onPointerMove(e) {
+        if (!dragging) return;
+        const appWidth = document.getElementById('app').offsetWidth;
+        if (appWidth === 0) return;
+        let pct = (e.clientX / appWidth) * 100;
+        if (pct < MIN_PCT) pct = MIN_PCT;
+        if (pct > MAX_PCT) pct = MAX_PCT;
+        applySplit(pct);
+        if (window.game) window.game.scale.refresh();
+      }
+
+      function onPointerUp(e) {
+        if (!dragging) return;
+        dragging = false;
+        divider.classList.remove('dragging');
+        document.body.classList.remove('split-dragging');
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        // Persist and refresh Phaser
+        const appWidth = document.getElementById('app').offsetWidth;
+        if (appWidth > 0) {
+          let pct = (gameEl.offsetWidth / appWidth) * 100;
+          if (pct < MIN_PCT) pct = MIN_PCT;
+          if (pct > MAX_PCT) pct = MAX_PCT;
+          localStorage.setItem('splitPct', pct.toFixed(1));
+        }
+        if (window.game) window.game.scale.refresh();
+      }
+
+      divider.addEventListener('mousedown', onPointerDown);
+
+      // Double-click to reset to default
+      divider.addEventListener('dblclick', () => {
+        applySplit(DEFAULT_PCT);
+        localStorage.removeItem('splitPct');
+        if (window.game) window.game.scale.refresh();
+      });
+    })();
+
     // ===== VIEW MODE TOGGLE =====
     (function initViewMode() {
       const saved = localStorage.getItem('viewMode');
@@ -3351,6 +3499,8 @@
           terminalBtn.classList.add('inactive');
           basementBtn.classList.remove('inactive');
           basementBtn.classList.add('active');
+          // Restore saved split ratio
+          window._applySplitFromStorage();
           if (window.game) {
             window.game.loop.wake();
             // Sync all agent statuses with game visuals
