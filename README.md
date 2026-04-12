@@ -4,6 +4,10 @@ A visual RPG terminal multiplexer for [Claude Code](https://claude.ai/code) CLI.
 
 Four pixel-art dungeon agents — each running an independent Claude Code session — work side by side in a procedurally drawn basement. A Phaser 3 game on the left, rich markdown terminals on the right.
 
+**Why this exists.** Running multiple Claude Code sessions across separate terminals gets messy fast — wrong tab, wrong command, wrong project. During long sessions, the clutter compounds and human error creeps in. Wolf's Basement puts all your agents, terminals, and dev servers into a single browser window so you can see everything at once and stay in control.
+
+**Built for humans, not just developers.** The interface was designed with a strong focus on UX — you don't need to be a terminal power-user or know how CLIs work to use it. Everything is visual, intuitive, and self-explanatory. Click things, drag things, read the status bar. If you can use a browser, you can run four AI agents.
+
 ![Node](https://img.shields.io/badge/node-%3E%3D18-333?logo=node.js)
 ![Express](https://img.shields.io/badge/express-4-333?logo=express)
 ![Phaser](https://img.shields.io/badge/phaser-3.60-333)
@@ -29,6 +33,21 @@ Copy `.env.example` to `.env` if you need to configure environment variables (op
 - Node.js 18+
 - Claude Code CLI installed and authenticated (`claude auth login`)
 - For WSL mode: WSL installed with Claude CLI available inside it
+
+---
+
+## View Modes
+
+Wolf's Basement has two view modes, toggled from the header bar:
+
+| Mode | What you see |
+|------|-------------|
+| **BASEMENT** | Split view — game on the left, terminal on the right. Drag the divider to resize. |
+| **TERMINAL** | Terminal only — full-width workspace, game hidden. |
+
+Switch between them anytime. The split ratio is saved to localStorage and restored on reload.
+
+**The game is fully refresh-safe.** Press **F5** or refresh your browser at any point — agent sessions, terminal history, card order, model/mode settings, and split position all survive. If the game canvas looks off after resizing or switching modes, a quick **F5** re-renders everything cleanly. Refresh is your friend, not your enemy.
 
 ---
 
