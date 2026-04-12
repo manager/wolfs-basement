@@ -287,6 +287,9 @@ Wolf's Basement is designed for long sessions — hours of continuous multi-agen
 - **Localhost-only binding** — The server binds to `127.0.0.1`, not `0.0.0.0`. No network exposure, no auth overhead.
 - **No polling waste** — System stats poll every 3s, git status every 5s, both lightweight. WebSocket push is used for all real-time updates (agent output, status changes, dev server events). No long-polling, no SSE reconnect loops.
 
+
+<img width="521" height="305" alt="image" src="https://github.com/user-attachments/assets/62c4bb8b-3a5e-4bb7-82d7-27888cac4d59" />
+
 ---
 
 ## License
