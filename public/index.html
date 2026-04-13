@@ -961,15 +961,15 @@
 
     #command-bar .cmd-prompt {
       padding-top: 8px;
-    }
-
-    #command-bar .cmd-prompt {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 13px;
       color: #cc6030;
       letter-spacing: 1px;
-      white-space: nowrap;
       font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
     }
 
     #command-bar .cmd-master-label {
@@ -1003,6 +1003,20 @@
     #command-input::-webkit-scrollbar-track { background: #0a0604; border-radius: 3px; }
     #command-input::-webkit-scrollbar-thumb { background: #2a1810; border-radius: 3px; border: 1px solid #1a0c06; }
     #command-input::-webkit-scrollbar-thumb:hover { background: #4a2818; }
+
+    .cmd-attach-btn {
+      background: none;
+      border: 1px solid #2a1810;
+      color: #6a4020;
+      font-size: 15px;
+      padding: 4px 7px;
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .cmd-attach-btn:hover { color: #ccaa40; border-color: #6a4020; }
 
     .cmd-stop-btn {
       display: none;
@@ -1213,7 +1227,9 @@
       <!-- COMMAND INPUT -->
       <div id="command-bar">
         <span class="cmd-prompt">
-          <span class="cmd-master-label">MASTER</span> &gt;
+          <span class="cmd-master-line"><span class="cmd-master-label">MASTER</span> &gt;</span>
+          <button class="cmd-attach-btn" title="Attach file" onclick="document.getElementById('file-attach-input').click()">&#x1F4CE;</button>
+          <input type="file" id="file-attach-input" multiple style="display:none" accept=".txt,.md,.json,.csv,.xml,.yaml,.yml,.toml,.ini,.cfg,.conf,.log,.js,.ts,.jsx,.tsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.hpp,.cs,.sh,.bash,.zsh,.ps1,.bat,.cmd,.html,.css,.scss,.less,.sql,.graphql,.proto,.env,.gitignore,.dockerfile,.tf,.hcl,image/*,.pdf">
         </span>
         <textarea id="command-input" placeholder="Select an agent..." autocomplete="off" spellcheck="false" rows="5"></textarea>
         <button class="cmd-stop-btn" id="cmd-stop-btn" onclick="stopAgentOp()">STOP</button>
@@ -1708,7 +1724,7 @@
       if (cssClass === 'term-cmd') {
         // User command: MASTER + timestamp + > text
         const cmdText = text.startsWith('> ') ? text.slice(2) : text;
-        let cmdHtml = escapeHtml(cmdText).replace(/\[(\+\d+\s+image(?:s)?)\]/g, '<span style="text-decoration:underline">[$1]</span>');
+        let cmdHtml = escapeHtml(cmdText).replace(/\[(\+\d+\s+(?:image|file)(?:s)?)\]/g, '<span style="text-decoration:underline">[$1]</span>');
         el.innerHTML = `<span class="cmd-master-tag">MASTER &gt;</span>${tsHtml} ${cmdHtml}`;
       } else if (cssClass === 'term-text' || cssClass === 'term-result') {
         // Agent response: extract agent name prefix, add colored tag
@@ -2615,58 +2631,89 @@
 
     // ===== PASTE / ATTACHMENTS =====
     let pendingImages = []; // { data: base64, mediaType: string, name: string }
+    let pendingFiles = [];  // { name: string, content: string } — text files injected into prompt
+
+    function allAttachmentCount() { return pendingImages.length + pendingFiles.length; }
 
     function updateAttachmentIndicator() {
       let ind = document.getElementById('attachment-indicator');
-      if (pendingImages.length === 0) {
+      const total = allAttachmentCount();
+      if (total === 0) {
         if (ind) ind.remove();
         return;
       }
       if (!ind) {
         ind = document.createElement('div');
         ind.id = 'attachment-indicator';
-        ind.style.cssText = 'padding:4px 12px;background:#1a1208;border-top:1px solid #2a1810;font-size:11px;color:#cc8030;display:flex;align-items:center;gap:8px;flex-shrink:0;';
+        ind.style.cssText = 'padding:4px 12px;background:#1a1208;border-top:1px solid #2a1810;font-size:11px;color:#cc8030;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;';
         document.getElementById('command-bar').insertAdjacentElement('beforebegin', ind);
       }
-      ind.innerHTML = `<span style="color:#ccaa40">📎 ${pendingImages.length} file${pendingImages.length > 1 ? 's' : ''} attached</span>` +
-        pendingImages.map((img, i) => `<span style="background:#2a1810;padding:2px 6px;border-radius:3px;font-size:10px;color:#b09060">${img.name} <span style="cursor:pointer;color:#cc4030;margin-left:4px" onclick="removeAttachment(${i})">✕</span></span>`).join('') +
+      const allTags = [
+        ...pendingImages.map((img, i) => `<span style="background:#2a1810;padding:2px 6px;border-radius:3px;font-size:10px;color:#b09060">${escapeHtml(img.name)} <span style="cursor:pointer;color:#cc4030;margin-left:4px" onclick="removeAttachment('img',${i})">✕</span></span>`),
+        ...pendingFiles.map((f, i) => `<span style="background:#1a1a10;padding:2px 6px;border-radius:3px;font-size:10px;color:#90a060">${escapeHtml(f.name)} <span style="cursor:pointer;color:#cc4030;margin-left:4px" onclick="removeAttachment('file',${i})">✕</span></span>`)
+      ];
+      ind.innerHTML = `<span style="color:#ccaa40">📎 ${total} file${total > 1 ? 's' : ''} attached</span>` +
+        allTags.join('') +
         `<span style="cursor:pointer;color:#cc4030;margin-left:auto;font-size:10px" onclick="clearAttachments()">CLEAR ALL</span>`;
     }
 
-    function removeAttachment(idx) {
-      pendingImages.splice(idx, 1);
+    function removeAttachment(kind, idx) {
+      if (kind === 'img') pendingImages.splice(idx, 1);
+      else pendingFiles.splice(idx, 1);
       updateAttachmentIndicator();
     }
 
     function clearAttachments() {
       pendingImages = [];
+      pendingFiles = [];
       updateAttachmentIndicator();
     }
 
-    // Ctrl+V paste handler — images from clipboard
+    function attachFile(file) {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImages.push({ data: reader.result.split(',')[1], mediaType: file.type, name: file.name });
+          updateAttachmentIndicator();
+          document.getElementById('command-input').focus();
+        };
+        reader.onerror = () => {};
+        reader.readAsDataURL(file);
+      } else {
+        // Text-based file — read as text and attach content
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = reader.result;
+          if (content.length > 500000) {
+            alert(`File "${file.name}" is too large (${(content.length / 1024).toFixed(0)} KB text). Max ~500 KB.`);
+            return;
+          }
+          pendingFiles.push({ name: file.name, content });
+          updateAttachmentIndicator();
+          document.getElementById('command-input').focus();
+        };
+        reader.onerror = () => {};
+        reader.readAsText(file);
+      }
+    }
+
+    // File picker handler
+    document.getElementById('file-attach-input').addEventListener('change', (e) => {
+      for (const file of e.target.files) attachFile(file);
+      e.target.value = ''; // reset so same file can be re-selected
+    });
+
+    // Ctrl+V paste handler — images and supported files from clipboard
     document.addEventListener('paste', (e) => {
       if (!selectedAgent) return;
       const items = e.clipboardData?.items;
       if (!items) return;
 
       for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result.split(',')[1];
-            pendingImages.push({
-              data: base64,
-              mediaType: item.type,
-              name: file.name || `image.${item.type.split('/')[1]}`
-            });
-            updateAttachmentIndicator();
-            document.getElementById('command-input').focus();
-          };
-          reader.onerror = () => { /* file unreadable — ignore silently */ };
-          reader.readAsDataURL(file);
-        }
+        if (item.kind !== 'file') continue; // skip plain text pastes
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) attachFile(file);
       }
     });
 
@@ -2678,21 +2725,7 @@
       e.preventDefault();
       cmdBar.style.borderColor = '';
       if (!selectedAgent) return;
-      for (const file of e.dataTransfer.files) {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            pendingImages.push({
-              data: reader.result.split(',')[1],
-              mediaType: file.type,
-              name: file.name
-            });
-            updateAttachmentIndicator();
-          };
-          reader.onerror = () => { /* file unreadable — ignore silently */ };
-          reader.readAsDataURL(file);
-        }
-      }
+      for (const file of e.dataTransfer.files) attachFile(file);
     });
 
     // ===== INPUT =====
@@ -2700,21 +2733,27 @@
       if (e.key === 'Enter' && !e.shiftKey && selectedAgent) {
         e.preventDefault();
         const input = e.target;
-        const text = input.value.trim();
-        if (!text && pendingImages.length === 0) return;
+        const rawText = input.value.trim();
+        if (!rawText && pendingImages.length === 0 && pendingFiles.length === 0) return;
         const state = agentState[selectedAgent];
         // Auto-summon if sleeping — server handles sequencing
         if (state.status === 'sleeping') {
           wsSend({ type: 'summon', id: selectedAgent });
         }
+        // Build prompt: prepend text file contents, then user text
+        let text = rawText;
+        if (pendingFiles.length > 0) {
+          const fileParts = pendingFiles.map(f => `--- ${f.name} ---\n${f.content}\n--- end ${f.name} ---`);
+          const prefix = fileParts.join('\n\n');
+          text = text ? prefix + '\n\n' + text : prefix + '\n\nAnalyze the attached file(s).';
+        }
         const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: state.model, mode: state.mode };
         if (pendingImages.length > 0) {
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
-          // Image payload: ${msg.images.length} images
         }
-        const imgCount = pendingImages.length;
-        const label = imgCount > 0 ? `> ${text || '(image)'} [+${imgCount} image${imgCount > 1 ? 's' : ''}]` : `> ${text}`;
-        msg.label = label; // include display label so server stores it in history
+        const totalFiles = pendingImages.length + pendingFiles.length;
+        const label = totalFiles > 0 ? `> ${rawText || '(files)'} [+${totalFiles} file${totalFiles > 1 ? 's' : ''}]` : `> ${rawText}`;
+        msg.label = label;
         wsSend(msg);
         agentState[selectedAgent].messageCount++;
         appendToTerminal(selectedAgent, label, 'term-cmd');
@@ -2724,6 +2763,7 @@
         input.value = '';
         _agentInputText[selectedAgent] = '';
         pendingImages = [];
+        pendingFiles = [];
         updateAttachmentIndicator();
       }
     });

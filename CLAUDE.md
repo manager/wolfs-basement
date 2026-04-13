@@ -45,7 +45,7 @@ sleeping → summon → awake → command → working → (response) → awake �
 ```
 
 - `summonAgent(id)` creates the agent state object but does NOT spawn a process
-- `sendCommand(id, text, model, mode, images)` spawns the CLI process (or resumes session)
+- `sendCommand(id, text, model, mode, images, label)` spawns the CLI process (or resumes session)
 - Persona injection: `--append-system-prompt` CLI flag + CLAUDE.md written to workspace
 - `ensureWorkspace(id)` always overwrites `workspaces/agent-N/CLAUDE.md` with current persona
 
@@ -90,6 +90,15 @@ Both mechanisms ensure the persona survives session resumption and workspace res
 - Permission prompt HTML stored in `termLines` buffer — `_updatePermInBuffer(permId, newHTML)` syncs DOM changes back to the buffer so they survive terminal rebuilds
 - `selectAgent(id)` returns early if `id === selectedAgent` to prevent re-selecting the same agent (e.g., game click) from wiping the command input
 - Agent card layout uses `flex-basis: 100%` on `.card-status` and `.card-project` to force consistent row structure across all cards at any width. Icon+name wrapped in `.card-identity` (inline-flex, nowrap) to prevent splitting.
+
+### File attachments
+
+Two parallel attachment arrays: `pendingImages` (base64 image data sent as `type: 'image'` content blocks) and `pendingFiles` (text file contents prepended to prompt as delimited text). Three input methods:
+1. **Paperclip button** (`.cmd-attach-btn`) — below "MASTER >" in `.cmd-prompt`, opens `#file-attach-input` file picker. Accepts images + common text/code file extensions.
+2. **Ctrl+V paste** — intercepts `kind === 'file'` clipboard items only (plain text paste untouched). Routes through shared `attachFile(file)`.
+3. **Drag & drop** on `#command-bar` — also routes through `attachFile(file)`.
+
+`attachFile(file)` dispatches: images → `pendingImages` (base64 via `readAsDataURL`), everything else → `pendingFiles` (text via `readAsText`, 500KB limit). On send, text file contents are prepended to the prompt as `--- filename ---\ncontent\n--- end filename ---` blocks. Images go via `msg.images` to the server's `sendCommand` which builds `type: 'image'` content blocks for Claude CLI stdin. `updateAttachmentIndicator()` shows both types with per-item remove buttons. Layout: `.cmd-prompt` is `flex-direction: column` with `.cmd-master-line` wrapper keeping "MASTER >" on one line and the paperclip below it.
 
 ### Split divider
 
