@@ -82,27 +82,36 @@ function shellSpawn(cmd, args, opts) {
   return spawn(bin, args, opts);
 }
 
-function shellKill(pid) {
+function shellKill(pid, opts) {
   if (!pid) return;
+  const sync = opts && opts.sync;
   try {
-    if (shellMode === 'wsl') {
-      // WSL: proc.pid is the Windows PID of wsl.exe, not the Linux PID inside WSL.
-      // Kill the Windows-side process tree (wsl.exe + children) via taskkill,
-      // which also terminates the Linux process it wraps.
-      spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
-    } else if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { shell: false, stdio: 'ignore' });
+    if (shellMode === 'wsl' || process.platform === 'win32') {
+      // Kill the process tree via taskkill. WSL note: proc.pid is the Windows PID
+      // of wsl.exe, not the Linux PID — taskkill /t kills the whole tree.
+      const args = ['/pid', String(pid), '/t', '/f'];
+      if (sync) {
+        spawnSync('taskkill', args, { shell: false, stdio: 'ignore', windowsHide: true, timeout: 5000 });
+      } else {
+        spawn('taskkill', args, { shell: false, stdio: 'ignore' });
+      }
     } else {
       process.kill(pid, 'SIGTERM');
     }
   } catch (e) {}
 }
 
-function killPort(port) {
+function killPort(port, opts) {
   if (!port || process.platform !== 'win32' || shellMode === 'wsl') return;
+  const sync = opts && opts.sync;
   try {
-    const proc = spawn('cmd', ['/c', `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /pid %a /t /f`], { shell: false, stdio: 'ignore', windowsHide: true });
-    proc.on('error', () => {});
+    const args = ['/c', `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /pid %a /t /f`];
+    if (sync) {
+      spawnSync('cmd', args, { shell: false, stdio: 'ignore', windowsHide: true, timeout: 5000 });
+    } else {
+      const proc = spawn('cmd', args, { shell: false, stdio: 'ignore', windowsHide: true });
+      proc.on('error', () => {});
+    }
   } catch (e) {}
 }
 
@@ -1042,7 +1051,7 @@ function restartDevServer(cwd) {
     ds.status = 'restarting';
     broadcastDevServer(cwd);
     const proc = ds.process;
-    proc.on('close', () => { startDevServer(cwd); });
+    proc.once('close', () => { startDevServer(cwd); });
     shellKill(proc.pid);
   } else {
     startDevServer(cwd);
@@ -1063,16 +1072,22 @@ app.get('/dev-server-status', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  ⛓️  WOLF'S BASEMENT running at http://localhost:${PORT}\n`);
+  const url = `http://localhost:${PORT}`;
+  const { exec } = require('child_process');
+  if (process.platform === 'win32') exec(`start ${url}`);
+  else if (process.platform === 'darwin') exec(`open ${url}`);
+  else exec(`xdg-open ${url}`);
 });
 
 // Graceful shutdown — kill all agent and dev server processes on exit
 function shutdown() {
   console.log('\n  Shutting down — killing agent processes...');
   for (const [id, agent] of agents) {
-    if (agent.process) shellKill(agent.process.pid);
+    if (agent.process) shellKill(agent.process.pid, { sync: true });
   }
   for (const [key, ds] of devServers) {
-    if (ds.process) shellKill(ds.process.pid);
+    if (ds.process) shellKill(ds.process.pid, { sync: true });
+    if (ds.port) killPort(ds.port, { sync: true });
   }
   process.exit(0);
 }
