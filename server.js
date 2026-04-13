@@ -438,6 +438,7 @@ function summonAgent(id) {
     lastOutputTime: 0,
     lastTextOutput: null,
     awakeAt: Date.now(),
+    _allowedTools: new Set(['AskUserQuestion', 'Read', 'Grep', 'Glob', 'Agent', 'WebSearch', 'WebFetch']),
   });
 
   const wsDir = agentCwd[id] || path.join(__dirname, 'workspaces', `agent-${id}`);
@@ -479,21 +480,17 @@ function sendCommand(id, text, model, mode, images, label) {
   }
 
   // Mode flags
-  const effectiveMode = agent._tempBypass ? 'bypass' : mode;
-  debug(`[Agent ${id}] Mode: ${effectiveMode}${agent._tempBypass ? ' (temp bypass)' : ''}, Model: ${model}`);
-  if (effectiveMode === 'bypass') {
+  debug(`[Agent ${id}] Mode: ${mode}, Model: ${model}`);
+  if (mode === 'bypass') {
     args.push('--dangerously-skip-permissions');
-  } else if (effectiveMode === 'plan') {
+  } else if (mode === 'plan') {
     args.push('--permission-mode', 'plan');
   }
 
   // Allowed tools (accumulated from user approvals)
-  if (agent._allowedTools && agent._allowedTools.size > 0 && effectiveMode !== 'bypass') {
+  if (agent._allowedTools && agent._allowedTools.size > 0 && mode !== 'bypass') {
     args.push('--allowed-tools', ...agent._allowedTools);
   }
-
-  // Clear temp bypass after use — only applies to the retry command
-  if (agent._tempBypass) agent._tempBypass = false;
 
   // Resume session if we have one
   if (agent.sessionId) {
@@ -854,12 +851,13 @@ wss.on('connection', (ws) => {
         sleepAgent(msg.id);
         break;
       case 'permission_allow': {
-        // User approved a specific tool — add to allowed list, kill process, resume with retry
+        // User approved denied tools — add ALL to allowed list, kill process, resume with retry
         const paAgent = agents.get(msg.id);
-        if (paAgent && msg.tool_name) {
+        const paTools = msg.tool_names || (msg.tool_name ? [msg.tool_name] : []);
+        if (paAgent && paTools.length > 0) {
           if (!paAgent._allowedTools) paAgent._allowedTools = new Set();
-          paAgent._allowedTools.add(msg.tool_name);
-          debug(`[Agent ${msg.id}] Tool approved: ${msg.tool_name}, allowed: [${[...paAgent._allowedTools]}]`);
+          for (const t of paTools) paAgent._allowedTools.add(t);
+          debug(`[Agent ${msg.id}] Tools approved: ${paTools.join(', ')}, allowed: [${[...paAgent._allowedTools]}]`);
           // Kill current process and retry with updated allowed-tools
           if (paAgent.process) {
             shellKill(paAgent.process.pid);
@@ -867,18 +865,23 @@ wss.on('connection', (ws) => {
           }
           const lastCmd = paAgent._lastCmd;
           if (lastCmd && paAgent.sessionId) {
-            const retryText = `The ${msg.tool_name} tool has been approved. Please retry your previous action.`;
+            const retryText = `The following tools have been approved: ${paTools.join(', ')}. Please retry your previous action.`;
             sendCommand(msg.id, retryText, lastCmd.model, lastCmd.mode, null, null);
           }
         }
         break;
       }
       case 'permission_allow_all': {
-        // User approved ALL tools for this retry — use temp bypass
+        // User approved ALL tools — persist denied tools + common write tools to allowed list
         const paaAgent = agents.get(msg.id);
         if (paaAgent) {
-          paaAgent._tempBypass = true;
-          debug(`[Agent ${msg.id}] Temp bypass enabled for retry`);
+          if (!paaAgent._allowedTools) paaAgent._allowedTools = new Set();
+          // Add all denied tools sent from client
+          const paaTools = msg.tool_names || [];
+          for (const t of paaTools) paaAgent._allowedTools.add(t);
+          // Also add common write tools so future commands don't hit the same wall
+          for (const t of ['Bash', 'Write', 'Edit', 'NotebookEdit']) paaAgent._allowedTools.add(t);
+          debug(`[Agent ${msg.id}] All tools allowed, persisted: [${[...paaAgent._allowedTools]}]`);
           if (paaAgent.process) {
             shellKill(paaAgent.process.pid);
             paaAgent.process = null;

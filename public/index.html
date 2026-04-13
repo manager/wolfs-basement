@@ -1454,12 +1454,13 @@
             return d.tool_name;
           }).join(', '));
           const permId = 'perm-' + Date.now();
-          const safeToolName = escHtml(msg.denials[0].tool_name).replace(/'/g, '&#39;');
+          const deniedTools = msg.denials.map(d => d.tool_name);
+          const safeToolsJson = escHtml(JSON.stringify(deniedTools)).replace(/'/g, '&#39;');
           const html = `<div class="perm-prompt" id="${permId}">` +
             `<span class="perm-icon">⚠</span> ` +
             `<span class="perm-text">Permission denied: <strong>${details}</strong></span>` +
-            `<button class="perm-btn perm-allow" onclick="permissionAllow(${msg.id}, '${safeToolName}', '${permId}')">ALLOW</button>` +
-            `<button class="perm-btn perm-allow-all" onclick="permissionAllowAll(${msg.id}, '${permId}')">ALLOW ALL</button>` +
+            `<button class="perm-btn perm-allow" onclick="permissionAllow(${msg.id}, '${safeToolsJson}', '${permId}')">ALLOW</button>` +
+            `<button class="perm-btn perm-allow-all" onclick="permissionAllowAll(${msg.id}, '${safeToolsJson}', '${permId}')">ALLOW ALL</button>` +
             `<button class="perm-btn perm-deny" onclick="permissionDeny('${permId}')">DENY</button>` +
             `</div>`;
           appendToTerminal(msg.id, html, 'term-permission', true);
@@ -2608,15 +2609,18 @@
         }
       }
     }
-    function permissionAllow(agentId, toolName, permId) {
-      wsSend({ type: 'permission_allow', id: agentId, tool_name: toolName });
-      const newHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${toolName}</strong> — resuming...</span>`;
+    function permissionAllow(agentId, toolsJson, permId) {
+      const toolNames = JSON.parse(toolsJson);
+      wsSend({ type: 'permission_allow', id: agentId, tool_names: toolNames });
+      const label = toolNames.join(', ');
+      const newHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${label}</strong> — resuming...</span>`;
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;
       _updatePermInBuffer(permId, newHTML);
     }
-    function permissionAllowAll(agentId, permId) {
-      wsSend({ type: 'permission_allow_all', id: agentId });
+    function permissionAllowAll(agentId, toolsJson, permId) {
+      const toolNames = JSON.parse(toolsJson);
+      wsSend({ type: 'permission_allow_all', id: agentId, tool_names: toolNames });
       const newHTML = '<span class="perm-icon">✓</span> <span class="perm-text">All tools allowed — resuming...</span>';
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;
