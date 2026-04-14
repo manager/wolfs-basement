@@ -1432,7 +1432,14 @@
 
           // Build git context line for the intro prompt
           let gitNote = '';
-          if (msg.git && msg.behind > 0) {
+          if (msg.reason && !msg.git) {
+            gitNote = `\nGit status: ${msg.reason}.`;
+            appendToTerminal(msg.id, `[Git: ${msg.reason}]`, 'term-system');
+          } else if (msg.git && msg.reason) {
+            // Git repo found but fetch failed — show warning, still report branch
+            gitNote = `\nGit status: branch "${msg.branch}", could not check remote (${msg.reason}).`;
+            appendToTerminal(msg.id, `<b style="color:#cc8030">⚠ ${msg.reason} — remote behind-check skipped (branch: ${msg.branch})</b>`, 'term-system', true);
+          } else if (msg.git && msg.behind > 0) {
             gitNote = `\nGit status: branch "${msg.branch}", ${msg.behind} commit${msg.behind > 1 ? 's' : ''} behind remote — warn the user and recommend pulling before working.`;
             appendToTerminal(msg.id, `<b style="color:#cc8030">⚠ Remote has ${msg.behind} unpulled commit${msg.behind > 1 ? 's' : ''} on branch "${msg.branch}" — consider pulling before working</b>`, 'term-system', true);
           } else if (msg.git) {
@@ -3157,7 +3164,7 @@
       }
 
       if (d.email) rows += authRow('Account', d.email);
-      if (d.gitEmail) rows += authRow('Git Email', d.gitEmail);
+      if (d.gitEmail) rows += `<div class="auth-row auth-row-clickable" onclick="authEditGitEmail(event)"><span class="auth-label">Git Email</span><span class="auth-value" id="auth-git-email-value" title="Click to edit">${escapeHtml(d.gitEmail)}</span></div>`;
       if (d.orgName && d.orgName !== d.email) rows += authRow('Org', d.orgName);
       if (d.subscriptionType) rows += authRow('Plan', d.subscriptionType.charAt(0).toUpperCase() + d.subscriptionType.slice(1));
       if (d.apiKey) rows += authRow('API Key', d.apiKey);
@@ -3185,6 +3192,46 @@
       e.stopPropagation();
       _authSwitchOpen = !_authSwitchOpen;
       renderAuthPopup();
+    }
+
+    function authEditGitEmail(e) {
+      e.stopPropagation();
+      const valueEl = document.getElementById('auth-git-email-value');
+      if (!valueEl || valueEl.querySelector('input')) return; // already editing
+      const current = _authData.gitEmail || '';
+      valueEl.innerHTML = `<input type="text" id="auth-git-email-input" value="${escapeHtml(current)}" style="background:#1a1210;color:#cc9060;border:1px solid #4a3020;font:inherit;width:100%;padding:2px 4px;outline:none;" />`;
+      const input = document.getElementById('auth-git-email-input');
+      input.focus();
+      input.select();
+      function commit() {
+        const val = input.value.trim();
+        if (!val || val === current) {
+          // Cancelled or unchanged — restore display
+          valueEl.textContent = current;
+          valueEl.title = 'Click to edit';
+          return;
+        }
+        input.disabled = true;
+        fetch('/set-git-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: val }) })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              _authData.gitEmail = val;
+              valueEl.textContent = val;
+              valueEl.title = 'Click to edit';
+            } else {
+              valueEl.textContent = current;
+              valueEl.title = 'Click to edit';
+            }
+          })
+          .catch(() => { valueEl.textContent = current; valueEl.title = 'Click to edit'; });
+      }
+      input.addEventListener('keydown', (ev) => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+        if (ev.key === 'Escape') { valueEl.textContent = current; valueEl.title = 'Click to edit'; }
+      });
+      input.addEventListener('blur', commit);
     }
 
     function authRow(label, value, cls) {

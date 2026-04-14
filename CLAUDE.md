@@ -102,7 +102,17 @@ Two parallel attachment arrays: `pendingImages` (base64 image data sent as `type
 
 ### Project folder select + git check
 
-When the user picks a project folder (`editCwd()` → `/pick-folder` → `set_cwd`), the server runs `git fetch --quiet` + behind check asynchronously. Once complete, it broadcasts `set_cwd_ready` with `{ id, git, branch, behind }`. The client waits for this message (`_pendingCwdIntro`) before sending the intro command, so the agent's first response includes all three: project brief, model+mode confirmation, and git status (behind/up-to-date/not-a-repo). A bold orange terminal warning also appears if behind. On `sleepAgent()`, `agentCwd[id]` is deleted so the user must re-pick the folder on next summon.
+When the user picks a project folder (`editCwd()` → `/pick-folder` → `set_cwd`), the server runs `git fetch --quiet` + behind check asynchronously. Once complete, it broadcasts `set_cwd_ready` with `{ id, git, branch, behind, reason }`. The client waits for this message (`_pendingCwdIntro`) before sending the intro command, so the agent's first response includes all three: project brief, model+mode confirmation, and git status (behind/up-to-date/not-a-repo). A bold orange terminal warning also appears if behind. On `sleepAgent()`, `agentCwd[id]` is deleted so the user must re-pick the folder on next summon.
+
+Git subprocess safety: `execGitCwd()` uses `GIT_TERMINAL_PROMPT=0` + `SSH BatchMode=yes` to prevent credential popups from hanging the process, plus a per-call timeout (10s default, 15s for fetch). On failure, `set_cwd_ready` still fires with a `reason` field (e.g. "git fetch failed — check credentials or network") so the client always unblocks and shows the user what happened.
+
+### Git identity
+
+The global git identity (email + name) from `git config --global` is applied to every agent process via `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_EMAIL`, `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME` environment variables. This ensures all agent commits across all projects are attributed to the same user — the one shown in the AUTHED panel's "Git Email" field.
+
+- Pre-populated on server start via `getGitIdentity()`, also refreshed whenever `/auth-status` is called
+- The Git Email in the AUTHED panel is editable — click to inline-edit, saves via `POST /set-git-email` → `git config --global user.email`
+- Env vars override any local/project git config without modifying repo files
 
 ### Split divider
 

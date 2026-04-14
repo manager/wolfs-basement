@@ -271,12 +271,19 @@ $dlg.Dispose()`;
 let _authCache = null;
 let _authCacheTime = 0;
 
-function getGitEmail(cb) {
-  const proc = shellSpawn('git', ['config', 'user.email'], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+function getGitConfig(key, cb) {
+  const proc = shellSpawn('git', ['config', key], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let out = '';
   proc.stdout.on('data', d => out += d.toString());
   proc.on('close', () => cb(out.trim() || null));
   proc.on('error', () => cb(null));
+}
+function getGitIdentity(cb) {
+  getGitConfig('user.email', (email) => {
+    getGitConfig('user.name', (name) => {
+      cb(email, name);
+    });
+  });
 }
 
 app.get('/auth-status', (req, res) => {
@@ -288,11 +295,12 @@ app.get('/auth-status', (req, res) => {
   let out = '';
   proc.stdout.on('data', d => out += d.toString());
   proc.on('close', (code) => {
-    getGitEmail((gitEmail) => {
+    getGitIdentity((gitEmail, gitName) => {
       if (code === 0) {
         try {
           _authCache = JSON.parse(out.trim());
           if (gitEmail) _authCache.gitEmail = gitEmail;
+          if (gitName) _authCache.gitName = gitName;
           _authCacheTime = Date.now();
           return res.json(_authCache);
         } catch (e) {}
@@ -305,6 +313,7 @@ app.get('/auth-status', (req, res) => {
         apiKey: apiKey ? apiKey.slice(0, 10) + '...' + apiKey.slice(-4) : null,
       };
       if (gitEmail) fallback.gitEmail = gitEmail;
+      if (gitName) fallback.gitName = gitName;
       _authCache = fallback;
       _authCacheTime = Date.now();
       res.json(fallback);
@@ -364,6 +373,23 @@ app.post('/auth-apikey', (req, res) => {
   }
   _authCache = null; // invalidate cache
   res.json({ ok: true });
+});
+
+app.post('/set-git-email', (req, res) => {
+  const email = req.body && req.body.email;
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.json({ ok: false, error: 'Invalid email' });
+  }
+  const proc = shellSpawn('git', ['config', '--global', 'user.email', email], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  proc.on('close', (code) => {
+    if (code === 0) {
+      if (_authCache) _authCache.gitEmail = email;
+      res.json({ ok: true });
+    } else {
+      res.json({ ok: false, error: 'git config failed' });
+    }
+  });
+  proc.on('error', () => res.json({ ok: false, error: 'git not found' }));
 });
 
 // --- Agent Process Manager ---
@@ -520,6 +546,19 @@ function sendCommand(id, text, model, mode, images, label) {
 
   debug(`[Agent ${id}] Running: claude ${JSON.stringify(args)} (cwd: ${workDir}, shell: ${shellMode})`);
 
+  // Inject git identity so agent commits are attributed to the authenticated user
+  const agentEnv = { ...process.env };
+  if (_authCache) {
+    if (_authCache.gitEmail) {
+      agentEnv.GIT_AUTHOR_EMAIL = _authCache.gitEmail;
+      agentEnv.GIT_COMMITTER_EMAIL = _authCache.gitEmail;
+    }
+    if (_authCache.gitName) {
+      agentEnv.GIT_AUTHOR_NAME = _authCache.gitName;
+      agentEnv.GIT_COMMITTER_NAME = _authCache.gitName;
+    }
+  }
+
   let proc;
   if (shellMode === 'wsl') {
     const wslCwd = winPathToWsl(workDir);
@@ -529,7 +568,7 @@ function sendCommand(id, text, model, mode, images, label) {
     const escapedArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
     proc = spawn('wsl.exe', ['bash', '-c', `cd '${safeCwd}' && claude ${escapedArgs}`], {
       shell: false,
-      env: { ...process.env },
+      env: agentEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -537,7 +576,7 @@ function sendCommand(id, text, model, mode, images, label) {
     proc = spawn(CLAUDE_BIN, args, {
       cwd: workDir,
       shell: true,
-      env: { ...process.env },
+      env: agentEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -848,40 +887,47 @@ wss.on('connection', (ws) => {
           // Check git status asynchronously, then notify client when ready
           const cwdForGit = msg.cwd;
           const agentIdForGit = msg.id;
-          const execGitCwd = (args) => new Promise((resolve) => {
+          const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' };
+          const execGitCwd = (args, timeoutMs = 10000) => new Promise((resolve) => {
             let proc;
+            let settled = false;
             if (shellMode === 'wsl') {
               const gitCwd = winPathToWsl(cwdForGit);
-              proc = spawn('wsl.exe', ['git', '-C', gitCwd, ...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+              proc = spawn('wsl.exe', ['git', '-C', gitCwd, ...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: gitEnv });
             } else {
-              proc = spawn(GIT_BIN, args, { cwd: cwdForGit, shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+              proc = spawn(GIT_BIN, args, { cwd: cwdForGit, shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: gitEnv });
             }
             let out = '';
             proc.stdout.on('data', d => out += d.toString());
-            proc.on('close', (code) => resolve(code === 0 ? out.trim() : null));
-            proc.on('error', () => resolve(null));
+            proc.on('close', (code) => { if (!settled) { settled = true; resolve(code === 0 ? out.trim() : null); } });
+            proc.on('error', () => { if (!settled) { settled = true; resolve(null); } });
+            setTimeout(() => { if (!settled) { settled = true; try { proc.kill(); } catch(_){} resolve(null); } }, timeoutMs);
           });
           // Fetch from remote, check behind count, then send ready signal
           execGitCwd(['rev-parse', '--is-inside-work-tree']).then(isGit => {
             if (isGit !== 'true') {
-              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false });
+              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'not a git repository' });
               return;
             }
-            return execGitCwd(['fetch', '--quiet']).then(() =>
-              Promise.all([
-                execGitCwd(['branch', '--show-current']),
-                execGitCwd(['rev-list', '--count', '--left-right', '@{u}...HEAD']),
-              ])
-            ).then(([branch, leftRight]) => {
-              let behind = 0;
-              if (leftRight) {
-                const parts = leftRight.split('\t');
-                behind = parseInt(parts[0]) || 0;
-              }
-              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind });
+            return execGitCwd(['branch', '--show-current']).then(branch => {
+              return execGitCwd(['fetch', '--quiet'], 15000).then(fetchResult => {
+                if (fetchResult === null) {
+                  // Fetch failed or timed out — still send branch info
+                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind: 0, reason: 'git fetch failed — check credentials or network' });
+                  return;
+                }
+                return execGitCwd(['rev-list', '--count', '--left-right', '@{u}...HEAD']).then(leftRight => {
+                  let behind = 0;
+                  if (leftRight) {
+                    const parts = leftRight.split('\t');
+                    behind = parseInt(parts[0]) || 0;
+                  }
+                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind });
+                });
+              });
             });
           }).catch(() => {
-            broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false });
+            broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'git check failed' });
           });
         }
         break;
@@ -1111,6 +1157,12 @@ app.get('/dev-server-status', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '127.0.0.1', () => {
+  // Pre-populate auth cache so git identity is available for first agent spawn
+  getGitIdentity((email, name) => {
+    if (!_authCache) _authCache = {};
+    if (email) _authCache.gitEmail = email;
+    if (name) _authCache.gitName = name;
+  });
   console.log(`\n  ⛓️  WOLF'S BASEMENT running at http://localhost:${PORT}\n`);
   const url = `http://localhost:${PORT}`;
   const { exec } = require('child_process');
