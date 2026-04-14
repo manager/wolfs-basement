@@ -1265,6 +1265,7 @@
     let _rateLimitStatus = 'allowed';
     const _agentInputText = {}; // per-agent command input text
     let _pickingFolder = false; // guard for folder picker
+    let _pendingCwdIntro = null; // { agentId, folder } — waits for set_cwd_ready before sending intro
 
     const AGENT_NAMES = { 1: 'Igor', 2: 'Elon', 3: 'Misa', 4: 'The Void' };
     const AGENT_SHORT = { 1: 'IGOR', 2: 'ELON', 3: 'MISA', 4: 'THE VOID' };
@@ -1412,11 +1413,44 @@
           agentState[msg.id].awakeAt = null;
           agentState[msg.id].idleSince = null;
           agentState[msg.id].messageCount = 0;
+          agentState[msg.id].cwd = ''; // clear project folder — user picks again on next summon
           updateCardStatus(msg.id);
           appendToTerminal(msg.id, `[${AGENT_SHORT[msg.id]} returned to sleep]`, 'term-system');
           if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'sleeping' });
-          if (selectedAgent === msg.id) updateTerminalHeader();
+          if (selectedAgent === msg.id) {
+            updateTerminalHeader();
+            updateStatusBar();
+          }
           break;
+
+        case 'set_cwd_ready': {
+          const pending = _pendingCwdIntro;
+          if (!pending || pending.agentId !== msg.id) break;
+          _pendingCwdIntro = null;
+          const introState = agentState[msg.id];
+          const folder = pending.folder;
+
+          // Build git context line for the intro prompt
+          let gitNote = '';
+          if (msg.git && msg.behind > 0) {
+            gitNote = `\nGit status: branch "${msg.branch}", ${msg.behind} commit${msg.behind > 1 ? 's' : ''} behind remote — warn the user and recommend pulling before working.`;
+            appendToTerminal(msg.id, `<b style="color:#cc8030">⚠ Remote has ${msg.behind} unpulled commit${msg.behind > 1 ? 's' : ''} on branch "${msg.branch}" — consider pulling before working</b>`, 'term-system', true);
+          } else if (msg.git) {
+            gitNote = `\nGit status: branch "${msg.branch}", up to date with remote.`;
+          } else {
+            gitNote = '\nGit status: not a git repository.';
+          }
+
+          const modeLabels = { normal: 'Normal (ask permissions)', plan: 'Plan (read-only, no changes)', bypass: 'Bypass (full access, no permission prompts)' };
+          const modeDesc = modeLabels[introState.mode] || introState.mode;
+          const intro = `We will now work on the project in this folder: ${folder}. Look around, read CLAUDE.md or README if they exist, and briefly tell me what this project is. Also confirm: you are running as model "${introState.model}" in "${modeDesc}" mode.${gitNote} Be concise — 2-3 sentences about the project, then one line confirming your model and mode, then one line about git status.`;
+          if (introState.status === 'sleeping') {
+            wsSend({ type: 'summon', id: msg.id });
+          }
+          wsSend({ type: 'command', id: msg.id, text: intro, model: introState.model, mode: introState.mode, label: `> cd ${folder}` });
+          appendToTerminal(msg.id, `> cd ${folder}`, 'term-cmd');
+          break;
+        }
 
         case 'dev_server_status': {
           const key = msg.cwd.replace(/\\/g, '/').toLowerCase();
@@ -2420,16 +2454,10 @@
             cwdEl.classList.remove('sb-cwd-empty');
             appendToTerminal(agentId, `[Working directory set to ${data.folder}]`, 'term-system');
             wsSend({ type: 'user_cmd', id: agentId, text: `[Working directory set to ${data.folder}]`, cls: 'term-system' });
+            appendToTerminal(agentId, `[Checking remote for updates...]`, 'term-system');
 
-            // Auto-send a command so the agent acknowledges the new project
-            const modeLabels = { normal: 'Normal (ask permissions)', plan: 'Plan (read-only, no changes)', bypass: 'Bypass (full access, no permission prompts)' };
-            const modeDesc = modeLabels[state.mode] || state.mode;
-            const intro = `We will now work on the project in this folder: ${data.folder}. Look around, read CLAUDE.md or README if they exist, and briefly tell me what this project is. Also confirm: you are running as model "${state.model}" in "${modeDesc}" mode. Be concise — 2-3 sentences about the project, then one line confirming your model and mode.`;
-            if (state.status === 'sleeping') {
-              wsSend({ type: 'summon', id: agentId });
-            }
-            wsSend({ type: 'command', id: agentId, text: intro, model: state.model, mode: state.mode, label: `> cd ${data.folder}` });
-            appendToTerminal(agentId, `> cd ${data.folder}`, 'term-cmd');
+            // Wait for server git check before sending intro command
+            _pendingCwdIntro = { agentId, folder: data.folder };
           } else {
             // Cancelled or same folder — restore proper display
             if (current) {

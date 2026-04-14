@@ -762,6 +762,7 @@ function sleepAgent(id) {
   agent.outputBuffer = [];
   agent.currentDelta = '';
   agent.lastTextOutput = null;
+  delete agentCwd[id]; // clear project folder — user picks again on next summon
   broadcast({ type: 'agent_killed', id });
   setStatus(id, 'sleeping');
   agents.delete(id);
@@ -843,6 +844,45 @@ wss.on('connection', (ws) => {
             cwdAgent.sessionId = null; // new directory = fresh session
           }
           debug(`[Agent ${msg.id}] CWD set to: ${msg.cwd} (session cleared)`);
+
+          // Check git status asynchronously, then notify client when ready
+          const cwdForGit = msg.cwd;
+          const agentIdForGit = msg.id;
+          const execGitCwd = (args) => new Promise((resolve) => {
+            let proc;
+            if (shellMode === 'wsl') {
+              const gitCwd = winPathToWsl(cwdForGit);
+              proc = spawn('wsl.exe', ['git', '-C', gitCwd, ...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+            } else {
+              proc = spawn(GIT_BIN, args, { cwd: cwdForGit, shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+            }
+            let out = '';
+            proc.stdout.on('data', d => out += d.toString());
+            proc.on('close', (code) => resolve(code === 0 ? out.trim() : null));
+            proc.on('error', () => resolve(null));
+          });
+          // Fetch from remote, check behind count, then send ready signal
+          execGitCwd(['rev-parse', '--is-inside-work-tree']).then(isGit => {
+            if (isGit !== 'true') {
+              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false });
+              return;
+            }
+            return execGitCwd(['fetch', '--quiet']).then(() =>
+              Promise.all([
+                execGitCwd(['branch', '--show-current']),
+                execGitCwd(['rev-list', '--count', '--left-right', '@{u}...HEAD']),
+              ])
+            ).then(([branch, leftRight]) => {
+              let behind = 0;
+              if (leftRight) {
+                const parts = leftRight.split('\t');
+                behind = parseInt(parts[0]) || 0;
+              }
+              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind });
+            });
+          }).catch(() => {
+            broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false });
+          });
         }
         break;
       case 'stop':
