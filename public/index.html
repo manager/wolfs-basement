@@ -1956,6 +1956,12 @@
     function updateInitPulse(initBtn, contextRatio) {
       if (!initBtn) return;
       if (!selectedAgent) return;
+      // INIT already clicked — stop nagging until new commands are sent
+      if (agentState[selectedAgent]._initDone) {
+        initBtn.classList.remove('init-pulse', 'init-pulse-soft');
+        initBtn.title = 'Save progress & compact context (INIT)';
+        return;
+      }
       const msgs = agentState[selectedAgent].messageCount || 0;
       const ctxHigh = contextRatio > 0.7;
       const ctxMid = contextRatio > 0.5;
@@ -2458,8 +2464,12 @@
       if (state.status === 'sleeping') {
         wsSend({ type: 'summon', id: selectedAgent });
       }
+      state._initDone = true;
       wsSend({ type: 'command', id: selectedAgent, text: initPrompt, model: state.model, mode: state.mode, label: '> /init' });
       appendToTerminal(selectedAgent, '> /init', 'term-cmd');
+      // Stop pulsing immediately — the user already acted on it
+      const initBtn = document.getElementById('sb-init-btn');
+      if (initBtn) initBtn.classList.remove('init-pulse', 'init-pulse-soft');
       showStarburst();
     }
 
@@ -2760,6 +2770,7 @@
         msg.label = label;
         wsSend(msg);
         agentState[selectedAgent].messageCount++;
+        agentState[selectedAgent]._initDone = false; // re-enable INIT pulse tracking
         appendToTerminal(selectedAgent, label, 'term-cmd');
         // Always scroll to bottom when the user sends a message
         const termOut = document.getElementById('terminal-output');
