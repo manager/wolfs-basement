@@ -1151,11 +1151,6 @@ class RoomScene extends Phaser.Scene {
     const agent = this.agents[id];
     if (!agent || agent.status === 'sleeping') return;
 
-    // Reposition transient bubbles (whip/pet/respawn) so they follow the agent
-    if (agent._activeBubble) {
-      this.showBubble(agent, agent._activeBubble);
-    }
-
     // Freeze agent during death burn — no walking, no actions
     if (agent._deathBurn) return;
 
@@ -1193,13 +1188,6 @@ class RoomScene extends Phaser.Scene {
         agent._proxBubbleUntil = now + 3000;
       }
 
-      // Keep redrawing proximity bubble at agent's current position
-      if (agent._proxBubble && now < agent._proxBubbleUntil) {
-        this.showBubble(agent, agent._proxBubble);
-      } else if (agent._proxBubble) {
-        agent._proxBubble = null;
-        if (agent.status !== 'working') this.hideBubble(agent);
-      }
     }
 
     // === PROXIMITY REACTIONS (Elon — pentagram + cat) ===
@@ -1241,13 +1229,6 @@ class RoomScene extends Phaser.Scene {
         }
       }
 
-      // Keep redrawing proximity bubble at agent's current position
-      if (agent._proxBubble && now < agent._proxBubbleUntil) {
-        this.showBubble(agent, agent._proxBubble);
-      } else if (agent._proxBubble) {
-        agent._proxBubble = null;
-        if (agent.status !== 'working') this.hideBubble(agent);
-      }
     }
 
     // === PROXIMITY REACTIONS (Misa — jealousy) ===
@@ -1312,13 +1293,6 @@ class RoomScene extends Phaser.Scene {
         }
       }
 
-      // Keep redrawing proximity bubble at agent's current position
-      if (agent._proxBubble && now < agent._proxBubbleUntil) {
-        this.showBubble(agent, agent._proxBubble);
-      } else if (agent._proxBubble) {
-        agent._proxBubble = null;
-        if (agent.status !== 'working') this.hideBubble(agent);
-      }
     }
 
     // Check ritual
@@ -1397,6 +1371,17 @@ class RoomScene extends Phaser.Scene {
         }
         this.drawAgent(id);
       }
+    }
+
+    // Sync all bubble types to agent's post-movement position
+    const now = Date.now();
+    if (agent._proxBubble && now < agent._proxBubbleUntil) {
+      this.showBubble(agent, agent._proxBubble);
+    } else if (agent._proxBubble) {
+      agent._proxBubble = null;
+      if (agent.status !== 'working') this.hideBubble(agent);
+    } else if (agent._activeBubble) {
+      this.showBubble(agent, agent._activeBubble);
     }
 
     this.updateAgentUI(agent);
@@ -1484,6 +1469,15 @@ class RoomScene extends Phaser.Scene {
     agent.sprites.workProps.clear();
     this.animateStudent(agent, el);
     this.drawAgent(4);
+
+    // Sync proximity bubbles to post-movement position
+    const now = Date.now();
+    if (agent._proxBubble && now < agent._proxBubbleUntil) {
+      this.showBubble(agent, agent._proxBubble);
+    } else if (agent._proxBubble) {
+      agent._proxBubble = null;
+    }
+
     this.updateAgentUI(agent);
   }
 
