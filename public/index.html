@@ -474,7 +474,7 @@
       border-radius: 2px;
       flex: 1 1 0;
     }
-    .compact-mode .agent-card::before { height: 2px; }
+    .compact-mode .agent-card::before { height: 2px; background: #3a3030 !important; }
     .compact-mode .agent-card .card-info {
       flex-wrap: nowrap;
       padding: 0 20px 0 0;
@@ -560,18 +560,18 @@
     #density-toggle {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 8px;
-      color: #4a3a28;
+      color: #7a5a38;
       letter-spacing: 1px;
       cursor: pointer;
-      border: 1px solid #2a1810;
-      background: none;
-      padding: 1px 5px;
+      border: 1px solid #4a3020;
+      background: rgba(74,48,32,0.1);
+      padding: 2px 6px;
       border-radius: 2px;
       margin-left: 8px;
       vertical-align: middle;
-      transition: color 0.2s, border-color 0.2s;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
     }
-    #density-toggle:hover { color: #8a6a40; border-color: #4a3020; }
+    #density-toggle:hover { color: #b89860; border-color: #6a4a30; background: rgba(74,48,32,0.2); }
 
     /* --- AGENT TERMINAL (per-agent) --- */
     #terminal-section {
@@ -1584,6 +1584,7 @@
 
         case 'agent_cwd':
           agentState[msg.id].cwd = msg.cwd;
+          agentState[msg.id].isSelf = !!msg.isSelf;
           updateCardStatus(msg.id);
           if (selectedAgent === msg.id) updateStatusBar();
           break;
@@ -1611,6 +1612,7 @@
           const pending = _pendingCwdIntro;
           if (!pending || pending.agentId !== msg.id) break;
           _pendingCwdIntro = null;
+          agentState[msg.id].isSelf = !!msg.isSelf;
           const introState = agentState[msg.id];
           const folder = pending.folder;
 
@@ -3591,7 +3593,7 @@
       if (!selectedAgent) return;
       const cwd = agentState[selectedAgent].cwd;
       const item = document.getElementById('sb-server-item');
-      if (!cwd) { item.style.display = 'none'; return; }
+      if (!cwd || agentState[selectedAgent].isSelf) { item.style.display = 'none'; return; }
       item.style.display = 'flex';
       const key = cwd.replace(/\\/g, '/').toLowerCase();
       const ds = _devServerState[key] || { status: 'off', port: null };

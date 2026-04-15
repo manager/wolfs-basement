@@ -645,7 +645,7 @@ function sendCommand(id, text, model, mode, images, label) {
       if (parsed.type === 'system') {
         if (parsed.cwd) {
           agent.cwd = parsed.cwd;
-          broadcast({ type: 'agent_cwd', id, cwd: parsed.cwd });
+          broadcast({ type: 'agent_cwd', id, cwd: parsed.cwd, isSelf: isSelfProject(parsed.cwd) });
         }
         if (parsed.permissionMode) {
           const modeLabel = { default: 'Normal', plan: 'Plan', bypassPermissions: 'Bypass' }[parsed.permissionMode] || parsed.permissionMode;
@@ -820,7 +820,7 @@ wss.on('connection', (ws) => {
     // Send stored cwd if available
     const ag = agents.get(i);
     if (ag && ag.cwd) {
-      ws.send(JSON.stringify({ type: 'agent_cwd', id: i, cwd: ag.cwd }));
+      ws.send(JSON.stringify({ type: 'agent_cwd', id: i, cwd: ag.cwd, isSelf: isSelfProject(ag.cwd) }));
     }
     // Send buffered output
     const agent = agents.get(i);
@@ -907,14 +907,14 @@ wss.on('connection', (ws) => {
           // Fetch from remote, check behind count, then send ready signal
           execGitCwd(['rev-parse', '--is-inside-work-tree']).then(isGit => {
             if (isGit !== 'true') {
-              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'not a git repository' });
+              broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'not a git repository', isSelf: isSelfProject(cwdForGit) });
               return;
             }
             return execGitCwd(['branch', '--show-current']).then(branch => {
               return execGitCwd(['fetch', '--quiet'], 15000).then(fetchResult => {
                 if (fetchResult === null) {
                   // Fetch failed or timed out — still send branch info
-                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind: 0, reason: 'git fetch failed — check credentials or network' });
+                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind: 0, reason: 'git fetch failed — check credentials or network', isSelf: isSelfProject(cwdForGit) });
                   return;
                 }
                 return execGitCwd(['rev-list', '--count', '--left-right', '@{u}...HEAD']).then(leftRight => {
@@ -923,12 +923,12 @@ wss.on('connection', (ws) => {
                     const parts = leftRight.split('\t');
                     behind = parseInt(parts[0]) || 0;
                   }
-                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind });
+                  broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: true, branch: branch || 'unknown', behind, isSelf: isSelfProject(cwdForGit) });
                 });
               });
             });
           }).catch(() => {
-            broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'git check failed' });
+            broadcast({ type: 'set_cwd_ready', id: agentIdForGit, git: false, reason: 'git check failed', isSelf: isSelfProject(cwdForGit) });
           });
         }
         break;
@@ -1041,6 +1041,10 @@ const devServers = new Map(); // cwd -> { process, status, port, cwd }
 
 function devServerKey(cwd) {
   return cwd.replace(/\\/g, '/').toLowerCase();
+}
+
+function isSelfProject(cwd) {
+  return devServerKey(cwd) === devServerKey(__dirname);
 }
 
 function broadcastDevServer(cwd) {
