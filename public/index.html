@@ -668,26 +668,132 @@
       margin-left: 6px;
     }
 
-    /* Copy response button */
+    /* Response action buttons (COPY, SEND TO) */
     #terminal-output .term-line.term-text { position: relative; }
-    #terminal-output .term-line .resp-copy-btn {
+    #terminal-output .term-line .resp-actions {
       position: absolute;
       top: 4px;
       right: 4px;
-      background: rgba(20,14,8,0.7);
-      border: 1px solid #2a1810;
-      color: #6a5a40;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 3px;
-      cursor: pointer;
+      display: flex;
+      gap: 4px;
       opacity: 0;
       transition: opacity 0.2s;
     }
-    #terminal-output .term-line.term-text:hover .resp-copy-btn { opacity: 1; }
-    #terminal-output .term-line .resp-copy-btn:hover { background: rgba(60,40,20,0.9); color: #ccaa60; border-color: #6a4820; }
-    #terminal-output .term-line .resp-copy-btn.copied { color: #60cc60; border-color: #306030; }
+    #terminal-output .term-line.term-text:hover .resp-actions { opacity: 1; }
+    #terminal-output .term-line .resp-action-btn {
+      background: rgba(20,14,8,0.85);
+      border: 1px solid #2a1810;
+      color: #6a5a40;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #terminal-output .term-line .resp-action-btn:hover { background: rgba(60,40,20,0.9); color: #ccaa60; border-color: #6a4820; }
+    #terminal-output .term-line .resp-action-btn.copied { color: #60cc60; border-color: #306030; }
+    #terminal-output .term-line.sendto-highlight { background: rgba(204, 160, 80, 0.08); outline: 1px solid rgba(204, 160, 80, 0.2); }
+    #terminal-output .term-line.sendto-highlight .resp-actions { opacity: 1; }
+
+    /* Send-to dropdown overlay */
+    #sendto-dropdown {
+      display: none;
+      position: fixed;
+      background: #1a1008;
+      border: 1px solid #4a3020;
+      border-radius: 4px;
+      z-index: 10000;
+      min-width: 160px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    #sendto-dropdown.open { display: block; }
+    #sendto-dropdown .sendto-title {
+      padding: 6px 10px 4px;
+      color: #6a5030;
+      font-size: 9px;
+      letter-spacing: 2px;
+      border-bottom: 1px solid #2a1810;
+    }
+    #sendto-dropdown .sendto-agent {
+      padding: 6px 10px;
+      cursor: pointer;
+      color: #c0a080;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #sendto-dropdown .sendto-agent:hover { background: #2a1a08; }
+    #sendto-dropdown .sendto-agent.busy {
+      cursor: default;
+      opacity: 0.4;
+    }
+    #sendto-dropdown .sendto-agent.busy:hover { background: transparent; }
+    #sendto-dropdown .sendto-agent.sleeping {
+      cursor: default;
+      opacity: 0.35;
+    }
+    #sendto-dropdown .sendto-agent.sleeping:hover { background: transparent; }
+    #sendto-dropdown .sendto-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    #sendto-dropdown .sendto-status {
+      margin-left: auto;
+      font-size: 8px;
+      letter-spacing: 1px;
+      opacity: 0.6;
+    }
+
+    /* Send-to instruction input overlay */
+    #sendto-instruction {
+      display: none;
+      position: fixed;
+      background: rgba(26, 16, 8, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid #4a3020;
+      border-radius: 4px;
+      z-index: 10001;
+      min-width: 280px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 8px 10px;
+    }
+    #sendto-instruction.open { display: block; }
+    #sendto-instruction .sendto-inst-title {
+      color: #6a5030;
+      font-size: 9px;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    #sendto-instruction .sendto-inst-target {
+      color: #c0a080;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    #sendto-instruction input {
+      width: 100%;
+      box-sizing: border-box;
+      background: #0a0604;
+      border: 1px solid #2a1810;
+      color: #c0a898;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 3px;
+      outline: none;
+      margin-top: 4px;
+    }
+    #sendto-instruction input:focus { border-color: #6a4820; }
+    #sendto-instruction .sendto-inst-hint {
+      color: #4a3a28;
+      font-size: 9px;
+      margin-top: 4px;
+    }
 
     /* Terminal output area */
     #terminal-output {
@@ -1312,6 +1418,17 @@
         <!-- Terminal output -->
         <div id="terminal-output"></div>
 
+        <!-- Send-to agent picker dropdown (positioned via JS) -->
+        <div id="sendto-dropdown">
+          <div class="sendto-title">SEND TO</div>
+        </div>
+        <!-- Send-to instruction input (positioned via JS) -->
+        <div id="sendto-instruction">
+          <div class="sendto-inst-title">SEND TO <span class="sendto-inst-target"></span></div>
+          <input type="text" placeholder="e.g. What do you think? / Continue this / Find problems" spellcheck="false" autocomplete="off">
+          <div class="sendto-inst-hint">ENTER to send &middot; ESC to cancel</div>
+        </div>
+
         <!-- Status bar -->
         <div id="status-bar" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
           <!-- Row 1: Model, Mode, Context Bar, INIT, CLEAR -->
@@ -1522,6 +1639,7 @@
             removeFireIndicator(msg.id);
           }
           updateCardStatus(msg.id);
+          updateTabIndicator();
           if (window.gameEvents) window.gameEvents.emit('agentStatus', msg);
           if (selectedAgent === msg.id) {
             updateTerminalHeader();
@@ -1600,6 +1718,7 @@
           agentState[msg.id].messageCount = 0;
           agentState[msg.id].cwd = ''; // clear project folder — user picks again on next summon
           updateCardStatus(msg.id);
+          updateTabIndicator();
           appendToTerminal(msg.id, `[${AGENT_SHORT[msg.id]} returned to sleep]`, 'term-system');
           if (window.gameEvents) window.gameEvents.emit('agentStatus', { id: msg.id, status: 'sleeping' });
           if (selectedAgent === msg.id) {
@@ -1978,9 +2097,9 @@
         } else {
           bodyHtml = renderMarkdown(text);
         }
-        // Add copy button for agent responses (term-text only)
+        // Add action buttons for agent responses (term-text only)
         if (cssClass === 'term-text') {
-          bodyHtml += `<button class="resp-copy-btn" onclick="copyResponse(this)" title="Copy response">COPY</button>`;
+          bodyHtml += `<span class="resp-actions"><button class="resp-action-btn" onclick="sendToAgent(this, event)" title="Send to another agent">SEND TO</button><button class="resp-action-btn" onclick="copyResponse(this)" title="Copy response">COPY</button></span>`;
         }
         el.innerHTML = bodyHtml;
       } else if (cssClass === 'term-tool') {
@@ -1998,15 +2117,21 @@
       }
     }
 
+    function _extractResponseText(btn) {
+      const line = btn.closest('.term-line');
+      if (!line) return '';
+      const clone = line.cloneNode(true);
+      clone.querySelectorAll('.resp-actions, .agent-resp-tag, .term-timestamp').forEach(b => b.remove());
+      return clone.textContent.trim();
+    }
+
     function copyResponse(btn) {
       const line = btn.closest('.term-line');
       if (!line) return;
-      // Clone and strip UI elements
       const clone = line.cloneNode(true);
-      clone.querySelectorAll('.resp-copy-btn, .agent-resp-tag, .term-timestamp').forEach(b => b.remove());
+      clone.querySelectorAll('.resp-actions, .agent-resp-tag, .term-timestamp').forEach(b => b.remove());
       const html = clone.innerHTML.trim();
       const text = clone.textContent.trim();
-      // Write both HTML and plain text to clipboard
       navigator.clipboard.write([
         new ClipboardItem({
           'text/html': new Blob([html], { type: 'text/html' }),
@@ -2020,6 +2145,146 @@
         btn.textContent = 'FAILED';
         setTimeout(() => { btn.textContent = 'COPY'; }, 1500);
       });
+    }
+
+    // ===== SEND TO AGENT =====
+    let _sendToState = { sourceAgent: null, responseText: '', btn: null };
+
+    function _clearSendToHighlight() {
+      const prev = document.querySelector('.sendto-highlight');
+      if (prev) prev.classList.remove('sendto-highlight');
+    }
+
+    function sendToAgent(btn, e) {
+      e.stopPropagation();
+      const responseText = _extractResponseText(btn);
+      if (!responseText) return;
+      const line = btn.closest('.term-line');
+      _clearSendToHighlight();
+      if (line) line.classList.add('sendto-highlight');
+      _sendToState = { sourceAgent: selectedAgent, responseText, btn };
+      _showSendToDropdown(btn);
+    }
+
+    function _showSendToDropdown(anchor) {
+      const dd = document.getElementById('sendto-dropdown');
+      // Build agent list (exclude current agent)
+      let html = '<div class="sendto-title">SEND TO</div>';
+      for (const id of [1, 2, 3, 4]) {
+        if (id === _sendToState.sourceAgent) continue;
+        const st = agentState[id];
+        const status = st.status;
+        const isBusy = status === 'working';
+        const isSleeping = status === 'sleeping';
+        const cls = isBusy ? 'sendto-agent busy' : isSleeping ? 'sendto-agent sleeping' : 'sendto-agent';
+        const dotColor = isBusy ? '#cc3020' : isSleeping ? '#4a3a30' : '#50b050';
+        const statusText = isBusy ? 'BUSY' : isSleeping ? 'SLEEPING' : '';
+        const onclick = (!isBusy && !isSleeping) ? `onclick="_pickSendToTarget(${id})"` : '';
+        html += `<div class="${cls}" ${onclick}><span class="sendto-dot" style="background:${dotColor}"></span>${AGENT_NAMES[id]}<span class="sendto-status">${statusText}</span></div>`;
+      }
+      dd.innerHTML = html;
+      // Position near the button, flip upward if near bottom
+      const rect = anchor.getBoundingClientRect();
+      dd.style.left = Math.max(4, rect.right - 160) + 'px';
+      dd.classList.add('open');
+      const ddH = dd.offsetHeight;
+      if (rect.bottom + 4 + ddH > window.innerHeight) {
+        dd.style.top = Math.max(4, rect.top - ddH - 4) + 'px';
+      } else {
+        dd.style.top = (rect.bottom + 4) + 'px';
+      }
+      // Close on outside click
+      setTimeout(() => document.addEventListener('pointerdown', _closeSendToDropdown, { once: true }), 0);
+    }
+
+    function _closeSendToDropdown(e) {
+      const dd = document.getElementById('sendto-dropdown');
+      if (e && dd.contains(e.target)) {
+        // Re-attach if click was inside dropdown
+        setTimeout(() => document.addEventListener('pointerdown', _closeSendToDropdown, { once: true }), 0);
+        return;
+      }
+      dd.classList.remove('open');
+      _clearSendToHighlight();
+    }
+
+    function _pickSendToTarget(targetId) {
+      document.getElementById('sendto-dropdown').classList.remove('open');
+      _sendToState.targetId = targetId;
+      _showSendToInstruction(targetId);
+    }
+
+    function _showSendToInstruction(targetId) {
+      const inst = document.getElementById('sendto-instruction');
+      inst.querySelector('.sendto-inst-target').textContent = AGENT_NAMES[targetId];
+      inst.querySelector('.sendto-inst-target').style.color = AGENT_COLORS[targetId];
+      const input = inst.querySelector('input');
+      input.value = '';
+      // Position near the SEND TO button, flip upward if near bottom
+      const btn = _sendToState.btn;
+      const rect = btn ? btn.getBoundingClientRect() : { top: 200, bottom: 220, right: 400 };
+      inst.style.left = Math.max(4, rect.right - 280) + 'px';
+      inst.classList.add('open');
+      const instH = inst.offsetHeight;
+      if (rect.bottom + 4 + instH > window.innerHeight) {
+        inst.style.top = Math.max(4, rect.top - instH - 4) + 'px';
+      } else {
+        inst.style.top = (rect.bottom + 4) + 'px';
+      }
+      input.focus();
+
+      function handleKey(e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          inst.classList.remove('open');
+          input.removeEventListener('keydown', handleKey);
+          _clearSendToHighlight();
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          const instruction = input.value.trim();
+          if (!instruction) return;
+          inst.classList.remove('open');
+          input.removeEventListener('keydown', handleKey);
+          _executeSendTo(_sendToState.targetId, instruction);
+        }
+      }
+      input.addEventListener('keydown', handleKey);
+      // Close on outside click
+      const closeInst = (e) => {
+        if (!inst.contains(e.target)) {
+          inst.classList.remove('open');
+          input.removeEventListener('keydown', handleKey);
+          _clearSendToHighlight();
+        } else {
+          document.addEventListener('pointerdown', closeInst, { once: true });
+        }
+      };
+      setTimeout(() => document.addEventListener('pointerdown', closeInst, { once: true }), 0);
+    }
+
+    function _executeSendTo(targetId, instruction) {
+      const src = _sendToState;
+      const senderName = AGENT_NAMES[src.sourceAgent];
+      const prompt = `Agent ${senderName} sent you this:\n\n${src.responseText}\n\n${instruction}`;
+      const targetState = agentState[targetId];
+      // Auto-summon if sleeping
+      if (targetState.status === 'sleeping') {
+        wsSend({ type: 'summon', id: targetId });
+      }
+      wsSend({ type: 'command', id: targetId, text: prompt, model: targetState.model, mode: targetState.mode, label: `> [from ${senderName}] ${instruction}` });
+      appendToTerminal(targetId, `<span class="cmd-master-tag" style="color:${AGENT_COLORS[src.sourceAgent]}">FROM ${AGENT_SHORT[src.sourceAgent]} &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${escapeHtml(instruction)}`, 'term-cmd', true);
+      targetState.messageCount++;
+      // Flash the send button to confirm
+      if (src.btn) {
+        src.btn.textContent = 'SENT!';
+        src.btn.classList.add('copied');
+        setTimeout(() => { src.btn.textContent = 'SEND TO'; src.btn.classList.remove('copied'); }, 1500);
+      }
+      // Switch to target agent's terminal so user sees the response
+      selectAgent(targetId);
     }
 
     function appendLineToDOM(text, cssClass, ts, rawHTML, firstResp) {
@@ -3211,6 +3476,43 @@
       if (el) el.remove();
     }
 
+    // ===== TAB INDICATOR (title + favicon) =====
+    const _defaultTitle = 'WOLF\'S BASEMENT';
+    const _defaultFavicon = '/favicon.svg';
+    let _tabWorking = 0;
+
+    function _buildWorkingFavicon() {
+      return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="4" fill="#0e0a06"/>
+  <rect x="1" y="1" width="30" height="30" rx="3" fill="none" stroke="#2a1810" stroke-width="1"/>
+  <path d="M8 28 L8 14 Q8 6 16 6 Q24 6 24 14 L24 28" fill="none" stroke="#4a3a28" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M9 28 L9 14.5 Q9 7.5 16 7.5 Q23 7.5 23 14.5 L23 28" fill="#1a1208" stroke="none"/>
+  <line x1="8" y1="18" x2="24" y2="18" stroke="#3a2a1a" stroke-width="0.5"/>
+  <line x1="8" y1="22" x2="24" y2="22" stroke="#3a2a1a" stroke-width="0.5"/>
+  <path d="M16 24 Q14 20 15 17 Q14 15 16 11 Q18 15 17 17 Q18 20 16 24" fill="#cc6020" opacity="0.9"/>
+  <path d="M16 24 Q14.5 21 15.5 18 Q15 16.5 16 13 Q17 16.5 16.5 18 Q17.5 21 16 24" fill="#ffaa40" opacity="0.8"/>
+  <path d="M16 24 Q15.2 22 15.8 19.5 Q16 18 16 15.5 Q16 18 16.2 19.5 Q16.8 22 16 24" fill="#ffdd88" opacity="0.7"/>
+  <circle cx="16" cy="18" r="6" fill="#ff6620" opacity="0.1"/>
+  <circle cx="16" cy="18" r="4" fill="#ffaa40" opacity="0.08"/>
+  <ellipse cx="11" cy="4" rx="1.5" ry="2" fill="none" stroke="#6a5a4a" stroke-width="1"/>
+  <ellipse cx="21" cy="4" rx="1.5" ry="2" fill="none" stroke="#6a5a4a" stroke-width="1"/>
+  <ellipse cx="11" cy="7" rx="1" ry="1.8" fill="none" stroke="#5a4a3a" stroke-width="0.8"/>
+  <ellipse cx="21" cy="7" rx="1" ry="1.8" fill="none" stroke="#5a4a3a" stroke-width="0.8"/>
+  <circle cx="26" cy="26" r="5" fill="#cc3020"/>
+  <circle cx="26" cy="26" r="3" fill="#ff4030"/>
+</svg>`)}`;
+    }
+    const _workingFavicon = _buildWorkingFavicon();
+
+    function updateTabIndicator() {
+      const workingCount = [1,2,3,4].filter(i => agentState[i] && agentState[i].status === 'working').length;
+      if (workingCount === _tabWorking) return;
+      _tabWorking = workingCount;
+      document.title = workingCount > 0 ? `${'\u{1F525}'.repeat(workingCount)} ${_defaultTitle}` : _defaultTitle;
+      const link = document.querySelector('link[rel="icon"]');
+      if (link) link.href = workingCount > 0 ? _workingFavicon : _defaultFavicon;
+    }
+
     // ===== TIMERS =====
     function formatDuration(ms) {
       if (!ms || ms < 0) return '—';
@@ -3696,7 +3998,7 @@
         while (walker.nextNode()) textNodes.push(walker.currentNode);
 
         textNodes.forEach(node => {
-          if (node.parentElement.classList.contains('resp-copy-btn')) return;
+          if (node.parentElement.classList.contains('resp-action-btn')) return;
           if (node.parentElement.classList.contains('code-copy-btn')) return;
           const text = node.textContent;
           if (!regex.test(text)) return;
