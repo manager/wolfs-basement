@@ -392,12 +392,19 @@
     }
 
     .card-status.sleeping { color: #4a3a30; background: #1a1210; border: 1px solid #2a1a14; }
-    .card-status.awake { color: #cc6030; background: rgba(204,96,48,0.12); border: 1px solid rgba(204,96,48,0.4); }
+    .card-status.awake { color: #50b050; background: rgba(80,176,80,0.12); border: 1px solid rgba(80,176,80,0.4); }
     .card-status.working { color: #cc3020; background: rgba(204,48,32,0.15); border: 1px solid rgba(204,48,32,0.4); animation: workPulse 1.2s infinite; }
 
     @keyframes workPulse {
       0%, 100% { box-shadow: 0 0 6px rgba(204,48,32,0.1); }
       50% { box-shadow: 0 0 14px rgba(204,48,32,0.3); }
+    }
+
+    .agent-card.perm-pending .card-status { color: #cc8020; background: rgba(204,128,32,0.15); border: 1px solid rgba(204,128,32,0.5); animation: permPulse 0.9s infinite; }
+
+    @keyframes permPulse {
+      0%, 100% { box-shadow: 0 0 4px rgba(204,128,32,0.15); }
+      50% { box-shadow: 0 0 16px rgba(204,128,32,0.45); }
     }
 
     .agent-card .card-sleep-btn {
@@ -423,6 +430,148 @@
     .agent-card.dragging { opacity: 0.4; border-style: dashed; }
     .agent-card.drag-over { border-color: #cc6030; box-shadow: 0 0 12px rgba(204,96,48,0.3); }
 
+
+    /* --- COMPACT MODE — transitions --- */
+    #dispatch-header { transition: padding 0.25s ease; }
+    #dispatch-title { transition: font-size 0.25s ease, letter-spacing 0.25s ease, text-shadow 0.25s ease; }
+    #dispatch-title .title-sep { transition: font-size 0.25s ease; }
+    .mode-btn { transition: font-size 0.25s ease, color 0.25s ease, text-shadow 0.25s ease; }
+    #dispatch-status { transition: font-size 0.25s ease, letter-spacing 0.25s ease; }
+    #shell-indicator { transition: font-size 0.25s ease; }
+    #roster-section { transition: padding 0.25s ease, border-bottom 0.25s ease; }
+    #roster-grid { transition: gap 0.25s ease; }
+    .agent-card { transition: padding 0.25s ease, border-radius 0.25s ease, opacity 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s; }
+    .agent-card::before { transition: height 0.25s ease; }
+    .agent-card .card-info { transition: padding 0.25s ease, gap 0.25s ease; }
+    .agent-card .card-identity { transition: opacity 0.2s ease, max-width 0.25s ease; overflow: hidden; }
+    .agent-card .card-name { transition: opacity 0.2s ease, max-width 0.25s ease; overflow: hidden; }
+    .agent-card .card-status { transition: opacity 0.2s ease, max-height 0.25s ease; overflow: hidden; }
+    .agent-card .card-project { transition: font-size 0.2s ease, color 0.2s ease; }
+    .agent-card .card-sleep-btn { transition: width 0.2s ease, height 0.2s ease, font-size 0.2s ease; }
+    .agent-card .card-compact-dot { transition: opacity 0.25s ease, width 0.25s ease, height 0.25s ease; }
+
+    /* --- COMPACT MODE — overrides --- */
+    .compact-mode #dispatch-header {
+      padding: 4px 10px 3px;
+      border-bottom: 1px solid #2a1008;
+    }
+    .compact-mode #dispatch-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-shadow: none;
+      color: #4a3020;
+    }
+    .compact-mode #dispatch-title .title-sep { font-size: 12px; }
+    .compact-mode .mode-btn { font-size: 12px; }
+    .compact-mode .mode-btn.active { text-shadow: none; color: #6a4030; }
+    .compact-mode #dispatch-status { font-size: 9px; letter-spacing: 2px; }
+    .compact-mode #shell-indicator { font-size: 8px; }
+    .compact-mode #roster-section { padding: 3px 10px; border-bottom: 1px solid #2a1008; }
+    .compact-mode #roster-grid { gap: 3px; flex-wrap: nowrap; }
+    .compact-mode .agent-card {
+      padding: 2px 8px;
+      min-width: 0;
+      border-radius: 2px;
+      flex: 1 1 0;
+    }
+    .compact-mode .agent-card::before { height: 2px; }
+    .compact-mode .agent-card .card-info {
+      flex-wrap: nowrap;
+      padding: 0 20px 0 0;
+      gap: 4px;
+      justify-content: center;
+    }
+    .compact-mode .agent-card .card-identity { opacity: 0; max-width: 0; padding: 0; }
+    .compact-mode .agent-card .card-name { opacity: 0; max-width: 0; }
+    .compact-mode .agent-card .card-status {
+      opacity: 1; max-height: none;
+      flex-basis: auto;
+      font-size: 7px;
+      letter-spacing: 1px;
+      padding: 1px 4px;
+      flex-shrink: 0;
+    }
+    .compact-mode .agent-card .card-project {
+      flex-basis: auto;
+      font-size: 9px;
+      color: #8a7a60;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .compact-mode .agent-card .card-sleep-btn {
+      width: 12px; height: 12px; font-size: 8px; line-height: 10px;
+      top: 2px; right: 2px;
+    }
+    .compact-mode .agent-card .card-compact-dot {
+      width: 7px; height: 7px;
+      opacity: 0.8;
+    }
+    .agent-card .card-compact-dot {
+      display: inline-block;
+      width: 0; height: 0;
+      border-radius: 50%;
+      background: var(--agent-color);
+      flex-shrink: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    .compact-mode .agent-card.status-sleeping .card-compact-dot { opacity: 0.2; }
+
+    /* --- COMPACT MODE: Status bar reflow (3 rows → 2 lines) --- */
+    .compact-mode #status-bar {
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 4px 10px;
+      gap: 4px 8px;
+    }
+    .compact-mode .sb-row { display: contents; }
+    .compact-mode #status-bar .sb-label { display: none; }
+    .compact-mode #status-bar .sb-item { gap: 3px; }
+    .compact-mode .sb-select {
+      font-size: 10px;
+      padding: 2px 4px;
+      padding-right: 16px;
+      background-position: right 4px center;
+    }
+    .compact-mode .sb-clear-btn { font-size: 9px; padding: 2px 6px; letter-spacing: 1px; }
+    .compact-mode .sb-usage-btn { font-size: 9px; padding: 2px 6px; }
+    .compact-mode .sb-push-btn { font-size: 9px; padding: 2px 6px; }
+    .compact-mode #status-bar .sb-stat { font-size: 10px; }
+    .compact-mode #status-bar .sb-uptime { font-size: 10px; }
+    .compact-mode #status-bar .sb-idle { font-size: 10px; }
+    .compact-mode .sb-usage-reset { font-size: 9px; }
+    .compact-mode #status-bar .sb-cwd {
+      flex: 0 1 auto;
+      max-width: 220px;
+      font-size: 10px;
+    }
+    .compact-mode .sb-context-bar { width: 50px; height: 5px; }
+    .compact-mode .sb-context-pct { font-size: 9px; }
+    .compact-mode .sb-git-branch { font-size: 10px; }
+    .compact-mode .sb-git-status { font-size: 10px; }
+    .compact-mode .sb-server-label { font-size: 9px; }
+    .compact-mode .sb-server-dot { width: 5px; height: 5px; }
+    .compact-mode #terminal-header { display: none !important; }
+    .compact-mode #command-bar .cmd-prompt { display: none; }
+    .compact-mode #command-bar { padding: 4px 8px; gap: 0; }
+
+    #density-toggle {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8px;
+      color: #4a3a28;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border: 1px solid #2a1810;
+      background: none;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-left: 8px;
+      vertical-align: middle;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #density-toggle:hover { color: #8a6a40; border-color: #4a3020; }
 
     /* --- AGENT TERMINAL (per-agent) --- */
     #terminal-section {
@@ -567,6 +716,7 @@
     #terminal-output .term-cmd { color: #e8a050; font-weight: 600; margin-top: 12px; padding: 6px 10px; border-bottom: 1px solid #2a1810; border-left: 3px solid #cc6030; background: rgba(204,96,48,0.06); border-radius: 2px; }
     #terminal-output .term-cmd .cmd-master-tag { color: #cc6030; font-weight: 700; margin-right: 6px; letter-spacing: 1px; font-size: 11px; }
     #terminal-output .term-text { color: #c0a898; padding: 4px 10px; border-left: 3px solid var(--agent-resp-color, #6a5040); margin-top: 2px; }
+    #terminal-output .term-response-start { background: var(--agent-resp-tint, rgba(106,80,64,0.08)); border-radius: 3px 3px 0 0; padding-top: 6px; margin-top: 6px; }
     #terminal-output .term-text .agent-resp-tag { font-weight: 700; font-size: 11px; letter-spacing: 1px; margin-right: 6px; }
     #terminal-output .term-tool { color: #5a7a9a; font-size: 12px; padding: 2px 0 2px 10px; border-left: 2px solid #2a3a4a; margin: 4px 0; }
     #terminal-output .term-tool .term-tool-body { color: #8a9aaa; margin-top: 4px; padding-left: 8px; border-left: 1px solid #1a2a3a; }
@@ -949,10 +1099,20 @@
     .sb-usage-reset.rate-limited { color: #cc3020; font-weight: 700; }
 
     /* --- COMMAND INPUT --- */
+    #cmd-resize-handle {
+      height: 5px;
+      background: #2a1008;
+      cursor: ns-resize;
+      flex-shrink: 0;
+      position: relative;
+    }
+    #cmd-resize-handle:hover, #cmd-resize-handle.dragging {
+      background: #6a2818;
+    }
     #command-bar {
       padding: 10px 12px;
       background: #100a06;
-      border-top: 2px solid #2a1008;
+      border-top: none;
       display: flex;
       align-items: flex-start;
       gap: 10px;
@@ -980,6 +1140,7 @@
 
     #command-input {
       flex: 1;
+      align-self: stretch;
       background: #0a0604;
       border: 1px solid #2a1810;
       color: #d8c0b0;
@@ -990,7 +1151,7 @@
       border-radius: 3px;
       resize: none;
       line-height: 1.5;
-      height: 6em;
+      min-height: 0;
     }
 
     #command-input:focus {
@@ -998,11 +1159,20 @@
       box-shadow: 0 0 10px rgba(106,40,24,0.25);
     }
 
-    #command-input::placeholder { color: #3a2018; }
+    #command-input:empty::before,
+    #command-input.is-empty::before {
+      content: attr(data-placeholder);
+      color: #3a2018;
+      pointer-events: none;
+      position: absolute;
+    }
+    #command-input { overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; position: relative; }
     #command-input::-webkit-scrollbar { width: 6px; }
     #command-input::-webkit-scrollbar-track { background: #0a0604; border-radius: 3px; }
     #command-input::-webkit-scrollbar-thumb { background: #2a1810; border-radius: 3px; border: 1px solid #1a0c06; }
     #command-input::-webkit-scrollbar-thumb:hover { background: #4a2818; }
+    #command-input strong { font-weight: 700; }
+    #command-input em { font-style: italic; }
 
     .cmd-attach-btn {
       background: none;
@@ -1020,20 +1190,19 @@
 
     .cmd-stop-btn {
       display: none;
-      background: rgba(200,30,20,0.25);
-      border: 1px solid #cc3020;
-      color: #ff4030;
+      background: rgba(140,30,20,0.12);
+      border: 1px solid #6a2818;
+      color: #8a4030;
       font-family: Impact, 'Arial Black', sans-serif;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
-      letter-spacing: 3px;
-      padding: 8px 16px;
+      letter-spacing: 2px;
+      padding: 6px 12px;
       border-radius: 3px;
       cursor: pointer;
-      animation: stopPulse 1s infinite;
       flex-shrink: 0;
     }
-    .cmd-stop-btn:hover { background: rgba(220,40,30,0.45); box-shadow: 0 0 12px rgba(220,40,30,0.4); }
+    .cmd-stop-btn:hover { background: rgba(180,40,30,0.25); color: #cc5040; border-color: #8a3020; }
     @keyframes stopPulse {
       0%, 100% { box-shadow: 0 0 6px rgba(204,48,32,0.2); }
       50% { box-shadow: 0 0 14px rgba(204,48,32,0.5); }
@@ -1055,7 +1224,7 @@
     <div id="dispatch-panel">
       <!-- HEADER -->
       <div id="dispatch-header">
-        <div id="dispatch-title">WOLF'S <span id="mode-basement" style="margin-left:6px;" class="mode-btn active">BASEMENT</span><span class="title-sep"> | </span><span id="mode-terminal" class="mode-btn inactive">TERMINAL</span></div>
+        <div id="dispatch-title">WOLF'S <span id="mode-basement" style="margin-left:6px;" class="mode-btn active">BASEMENT</span><span class="title-sep"> | </span><span id="mode-terminal" class="mode-btn inactive">TERMINAL</span><button id="density-toggle" onclick="toggleDensity()" title="Toggle Normal / Compact view">COMPACT MODE</button></div>
         <div id="dispatch-status-group">
           <div id="dispatch-status" onclick="toggleAuthPopup(event)">
             <span class="dot" id="auth-dot"></span><span id="auth-status-text">ACTIVE</span>
@@ -1078,6 +1247,7 @@
                style="--agent-color: #cc4040; --agent-color-rgb: 204,64,64;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(1)" title="Kill">x</div>
             <div class="card-info">
+              <span class="card-compact-dot"></span>
               <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#128367;</span>
               <span class="card-name">IGOR</span></span>
               <span class="card-status sleeping" id="card-status-1">SLEEPING</span>
@@ -1088,6 +1258,7 @@
                style="--agent-color: #6090cc; --agent-color-rgb: 96,144,204;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(2)" title="Kill">x</div>
             <div class="card-info">
+              <span class="card-compact-dot"></span>
               <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">&#9939;</span>
               <span class="card-name">ELON</span></span>
               <span class="card-status sleeping" id="card-status-2">SLEEPING</span>
@@ -1098,6 +1269,7 @@
                style="--agent-color: #bb55dd; --agent-color-rgb: 187,85,221;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(3)" title="Kill">x</div>
             <div class="card-info">
+              <span class="card-compact-dot"></span>
               <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">👑</span>
               <span class="card-name">MISA</span></span>
               <span class="card-status sleeping" id="card-status-3">SLEEPING</span>
@@ -1108,6 +1280,7 @@
                style="--agent-color: #e88830; --agent-color-rgb: 232,136,48;">
             <div class="card-sleep-btn" onclick="event.stopPropagation(); sleepAgent(4)" title="Kill">x</div>
             <div class="card-info">
+              <span class="card-compact-dot"></span>
               <span class="card-identity"><span class="card-icon" onclick="event.stopPropagation(); openIconPicker(this)">🐈</span>
               <span class="card-name">THE VOID</span></span>
               <span class="card-status sleeping" id="card-status-4">SLEEPING</span>
@@ -1225,13 +1398,14 @@
       </div>
 
       <!-- COMMAND INPUT -->
+      <div id="cmd-resize-handle"></div>
       <div id="command-bar">
         <span class="cmd-prompt">
           <span class="cmd-master-line"><span class="cmd-master-label">MASTER</span> &gt;</span>
           <button class="cmd-attach-btn" title="Attach file" onclick="document.getElementById('file-attach-input').click()">&#x1F4CE;</button>
           <input type="file" id="file-attach-input" multiple style="display:none" accept=".txt,.md,.json,.csv,.xml,.yaml,.yml,.toml,.ini,.cfg,.conf,.log,.js,.ts,.jsx,.tsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.hpp,.cs,.sh,.bash,.zsh,.ps1,.bat,.cmd,.html,.css,.scss,.less,.sql,.graphql,.proto,.env,.gitignore,.dockerfile,.tf,.hcl,image/*,.pdf">
         </span>
-        <textarea id="command-input" placeholder="Select an agent..." autocomplete="off" spellcheck="false" rows="5"></textarea>
+        <div id="command-input" class="is-empty" contenteditable="true" spellcheck="false" data-placeholder="Select an agent..." role="textbox"></div>
         <button class="cmd-stop-btn" id="cmd-stop-btn" onclick="stopAgentOp()">STOP</button>
       </div>
     </div>
@@ -1263,7 +1437,14 @@
     let ws = null;
     let _rateLimitResetsAt = null; // ms timestamp when rate limit resets
     let _rateLimitStatus = 'allowed';
-    const _agentInputText = {}; // per-agent command input text
+    const _agentInputText = {}; // per-agent plain text
+    const _agentInputHtml = {}; // per-agent HTML (for contenteditable restore)
+    function _getInputText() { return document.getElementById('command-input').innerText.replace(/\n$/, ''); }
+    function _getInputHtml() { return document.getElementById('command-input').innerHTML; }
+    function _setInputHtml(html) { const el = document.getElementById('command-input'); el.innerHTML = html; el.classList.toggle('is-empty', !el.innerText.trim()); }
+    function _clearInput() { const el = document.getElementById('command-input'); el.innerHTML = ''; el.classList.add('is-empty'); }
+    function _setPlaceholder(text) { document.getElementById('command-input').dataset.placeholder = text; }
+    const _awaitFirstResp = {}; // per-agent: true after term-cmd, cleared on first term-text
     let _pickingFolder = false; // guard for folder picker
     let _pendingCwdIntro = null; // { agentId, folder } — waits for set_cwd_ready before sending intro
 
@@ -1316,6 +1497,10 @@
           if (msg.status !== 'sleeping' && !agentState[msg.id].awakeAt) {
             agentState[msg.id].awakeAt = msg.awakeAt || Date.now();
           }
+          // Clear permission pulse when agent resumes work or sleeps
+          if ((msg.status === 'sleeping' || msg.status === 'working') && agentState[msg.id]._hasPendingPerm) {
+            _clearPermPending(msg.id);
+          }
           if (msg.status === 'sleeping') {
             agentState[msg.id].awakeAt = null;
             agentState[msg.id].idleSince = null;
@@ -1342,11 +1527,10 @@
             updateTerminalHeader();
             updateStopButton();
             // Update placeholder based on status
-            const input = document.getElementById('command-input');
             if (msg.status === 'sleeping') {
-              input.placeholder = `Wake ${AGENT_NAMES[msg.id]}... (or select Project Folder to wake + assign)`;
+              _setPlaceholder(`Wake ${AGENT_NAMES[msg.id]}... (or select Project Folder to wake + assign)`);
             } else {
-              input.placeholder = `Command ${AGENT_NAMES[msg.id]}...`;
+              _setPlaceholder(`Command ${AGENT_NAMES[msg.id]}...`);
             }
           }
           break;
@@ -1505,6 +1689,8 @@
             `<button class="perm-btn perm-deny" onclick="permissionDeny('${permId}')">DENY</button>` +
             `</div>`;
           appendToTerminal(msg.id, html, 'term-permission', true);
+          agentState[msg.id]._hasPendingPerm = true;
+          _updatePermPulse(msg.id);
           break;
         }
       }
@@ -1527,8 +1713,16 @@
     function appendToTerminal(agentId, text, cssClass, rawHTML) {
       if (agentId !== null) {
         const ts = Date.now();
+        // Track first response line after a command
+        let firstResp = false;
+        if (cssClass === 'term-cmd') {
+          _awaitFirstResp[agentId] = true;
+        } else if (cssClass === 'term-text' && _awaitFirstResp[agentId]) {
+          firstResp = true;
+          _awaitFirstResp[agentId] = false;
+        }
         // Store in agent's terminal
-        agentState[agentId].termLines.push({ text, cls: cssClass, ts, rawHTML: !!rawHTML });
+        agentState[agentId].termLines.push({ text, cls: cssClass, ts, rawHTML: !!rawHTML, firstResp });
         // Cap at 500 lines
         if (agentState[agentId].termLines.length > 500) {
           agentState[agentId].termLines = agentState[agentId].termLines.slice(-400);
@@ -1567,7 +1761,7 @@
               return;
             }
           }
-          appendLineToDOM(text, cssClass, ts, rawHTML);
+          appendLineToDOM(text, cssClass, ts, rawHTML, firstResp);
           // Store full text on tool lines for future grouping
           if (cssClass === 'term-tool') {
             const out = document.getElementById('terminal-output');
@@ -1766,7 +1960,8 @@
       if (cssClass === 'term-cmd') {
         // User command: MASTER + timestamp + > text
         const cmdText = text.startsWith('> ') ? text.slice(2) : text;
-        let cmdHtml = escapeHtml(cmdText).replace(/\[(\+\d+\s+(?:image|file)(?:s)?)\]/g, '<span style="text-decoration:underline">[$1]</span>');
+        let cmdHtml = escapeHtml(cmdText)
+          .replace(/\[(\+\d+\s+(?:image|file)(?:s)?)\]/g, '<span style="text-decoration:underline">[$1]</span>');
         el.innerHTML = `<span class="cmd-master-tag">MASTER &gt;</span>${tsHtml} ${cmdHtml}`;
       } else if (cssClass === 'term-text' || cssClass === 'term-result') {
         // Agent response: extract agent name prefix, add colored tag
@@ -1825,16 +2020,22 @@
       });
     }
 
-    function appendLineToDOM(text, cssClass, ts, rawHTML) {
+    function appendLineToDOM(text, cssClass, ts, rawHTML, firstResp) {
       const out = document.getElementById('terminal-output');
       // Only auto-scroll if user is near the bottom (within 80px)
       const nearBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 80;
       const line = document.createElement('div');
-      line.className = `term-line ${cssClass}`;
+      line.className = `term-line ${cssClass}${firstResp ? ' term-response-start' : ''}`;
       if (rawHTML) {
         line.innerHTML = text;
       } else {
         formatTermLine(line, text, cssClass, ts);
+      }
+      // Set tint color for response start highlight
+      if (firstResp) {
+        const color = line.style.getPropertyValue('--agent-resp-color') || '#6a5040';
+        const m = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+        if (m) line.style.setProperty('--agent-resp-tint', `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},0.08)`);
       }
       out.appendChild(line);
       if (nearBottom) out.scrollTop = out.scrollHeight;
@@ -1871,11 +2072,16 @@
         } else {
           flushToolGroup();
           const el = document.createElement('div');
-          el.className = `term-line ${l.cls}`;
+          el.className = `term-line ${l.cls}${l.firstResp ? ' term-response-start' : ''}`;
           if (l.rawHTML) {
             el.innerHTML = l.text;
           } else {
             formatTermLine(el, l.text, l.cls, l.ts);
+          }
+          if (l.firstResp) {
+            const color = el.style.getPropertyValue('--agent-resp-color') || '#6a5040';
+            const m = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+            if (m) el.style.setProperty('--agent-resp-tint', `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},0.08)`);
           }
           out.appendChild(el);
         }
@@ -2110,7 +2316,8 @@
       // Save previous agent's input text before switching
       const input = document.getElementById('command-input');
       if (selectedAgent) {
-        _agentInputText[selectedAgent] = input.value;
+        _agentInputText[selectedAgent] = _getInputText();
+        _agentInputHtml[selectedAgent] = _getInputHtml();
       }
       selectedAgent = id;
 
@@ -2147,11 +2354,11 @@
       }
 
       // Restore per-agent input text
-      input.value = _agentInputText[id] || '';
+      _setInputHtml(_agentInputHtml[id] || '');
       if (agentState[id].status === 'sleeping') {
-        input.placeholder = `Wake ${AGENT_NAMES[id]}... (or select Project Folder to wake + assign)`;
+        _setPlaceholder(`Wake ${AGENT_NAMES[id]}... (or select Project Folder to wake + assign)`);
       } else {
-        input.placeholder = `Command ${AGENT_NAMES[id]}...`;
+        _setPlaceholder(`Command ${AGENT_NAMES[id]}...`);
       }
       input.focus();
 
@@ -2654,6 +2861,19 @@
         }
       }
     }
+    function _updatePermPulse(agentId) {
+      const card = document.getElementById(`card-status-${agentId}`)?.closest('.agent-card');
+      if (!card) return;
+      if (agentState[agentId]._hasPendingPerm) {
+        card.classList.add('perm-pending');
+      } else {
+        card.classList.remove('perm-pending');
+      }
+    }
+    function _clearPermPending(agentId) {
+      agentState[agentId]._hasPendingPerm = false;
+      _updatePermPulse(agentId);
+    }
     function permissionAllow(agentId, toolsJson, permId) {
       const toolNames = JSON.parse(toolsJson);
       wsSend({ type: 'permission_allow', id: agentId, tool_names: toolNames });
@@ -2662,6 +2882,7 @@
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;
       _updatePermInBuffer(permId, newHTML);
+      _clearPermPending(agentId);
     }
     function permissionAllowAll(agentId, toolsJson, permId) {
       const toolNames = JSON.parse(toolsJson);
@@ -2670,12 +2891,23 @@
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;
       _updatePermInBuffer(permId, newHTML);
+      _clearPermPending(agentId);
     }
     function permissionDeny(permId) {
       const newHTML = '<span class="perm-icon">✗</span> <span class="perm-text" style="color:#4a3a30">Permission denied</span>';
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;
       _updatePermInBuffer(permId, newHTML);
+      // Find which agent owns this permId and clear their pulse
+      for (let aid = 1; aid <= 4; aid++) {
+        const lines = agentState[aid].termLines;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].rawHTML && lines[i].text.includes(permId)) {
+            _clearPermPending(aid);
+            return;
+          }
+        }
+      }
     }
 
     // ===== PASTE / ATTACHMENTS =====
@@ -2778,11 +3010,43 @@
     });
 
     // ===== INPUT =====
+    // Clean stray <br> on focus so cursor starts on line 1
+    document.getElementById('command-input').addEventListener('focus', () => {
+      const el = document.getElementById('command-input');
+      if (!el.innerText.trim()) { el.innerHTML = ''; el.classList.add('is-empty'); }
+    });
+
+    // Paste as plain text into contenteditable (prevent rich HTML from external sources)
+    document.getElementById('command-input').addEventListener('paste', (e) => {
+      // File pastes are handled by the global paste handler above — skip those
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of items) { if (item.kind === 'file') return; }
+      }
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    // Track empty state for placeholder display in contenteditable
+    document.getElementById('command-input').addEventListener('input', () => {
+      const el = document.getElementById('command-input');
+      const text = el.innerText.trim();
+      el.classList.toggle('is-empty', !text);
+    });
+
     document.getElementById('command-input').addEventListener('keydown', (e) => {
+      // Ctrl+B = bold, Ctrl+I = italic — live formatting via execCommand
+      if (e.ctrlKey && !e.shiftKey && (e.key === 'b' || e.key === 'i')) {
+        e.preventDefault();
+        document.execCommand(e.key === 'b' ? 'bold' : 'italic');
+        return;
+      }
       if (e.key === 'Enter' && !e.shiftKey && selectedAgent) {
         e.preventDefault();
         const input = e.target;
-        const rawText = input.value.trim();
+        const rawText = _getInputText().trim();
+        const displayHtml = _getInputHtml();
         if (!rawText && pendingImages.length === 0 && pendingFiles.length === 0) return;
         const state = agentState[selectedAgent];
         // Auto-summon if sleeping — server handles sequencing
@@ -2801,17 +3065,20 @@
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
         }
         const totalFiles = pendingImages.length + pendingFiles.length;
-        const label = totalFiles > 0 ? `> ${rawText || '(files)'} [+${totalFiles} file${totalFiles > 1 ? 's' : ''}]` : `> ${rawText}`;
-        msg.label = label;
+        msg.label = totalFiles > 0 ? `> ${rawText || '(files)'} [+${totalFiles} file${totalFiles > 1 ? 's' : ''}]` : `> ${rawText}`;
+        // Build rich HTML label for terminal display (preserves bold/italic from contenteditable)
+        const fileTag = totalFiles > 0 ? ` <span style="text-decoration:underline">[+${totalFiles} file${totalFiles > 1 ? 's' : ''}]</span>` : '';
+        const labelHtml = `<span class="cmd-master-tag">MASTER &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${displayHtml}${fileTag}`;
         wsSend(msg);
         agentState[selectedAgent].messageCount++;
         agentState[selectedAgent]._initDone = false; // re-enable INIT pulse tracking
-        appendToTerminal(selectedAgent, label, 'term-cmd');
+        appendToTerminal(selectedAgent, labelHtml, 'term-cmd', true);
         // Always scroll to bottom when the user sends a message
         const termOut = document.getElementById('terminal-output');
         if (termOut) termOut.scrollTop = termOut.scrollHeight;
-        input.value = '';
+        _clearInput();
         _agentInputText[selectedAgent] = '';
+        _agentInputHtml[selectedAgent] = '';
         pendingImages = [];
         pendingFiles = [];
         updateAttachmentIndicator();
@@ -2856,7 +3123,7 @@
           document.getElementById('terminal-header').style.display = 'none';
           document.getElementById('terminal-output').style.display = 'none';
           document.getElementById('status-bar').style.display = 'none';
-          document.getElementById('command-input').placeholder = 'Select an agent...';
+          _setPlaceholder('Select an agent...');
           if (window.gameEvents) window.gameEvents.emit('agentSelected', null);
         }
       }
@@ -3612,6 +3879,72 @@
       });
     })();
 
+    // ===== COMMAND BAR RESIZE =====
+    (function initCmdResize() {
+      const handle = document.getElementById('cmd-resize-handle');
+      const cmdBar = document.getElementById('command-bar');
+      const MIN_H = 110; // ~6em default minimum
+      let dragging = false, startY = 0, startH = 0;
+
+      function getMaxH() {
+        // Max = bottom of roster section (agent tiles) to bottom of dispatch panel, minus status bar
+        const panel = document.getElementById('dispatch-panel');
+        const roster = document.getElementById('roster-section');
+        const statusBar = document.getElementById('status-bar');
+        if (!panel || !roster) return 400;
+        const rosterBottom = roster.getBoundingClientRect().bottom;
+        const panelBottom = panel.getBoundingClientRect().bottom;
+        const statusH = statusBar ? statusBar.offsetHeight : 0;
+        const handleH = handle.offsetHeight;
+        return panelBottom - rosterBottom - statusH - handleH - 20;
+      }
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        startY = e.clientY;
+        startH = cmdBar.offsetHeight;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      function onMove(e) {
+        if (!dragging) return;
+        const delta = startY - e.clientY; // dragging up = bigger
+        let h = startH + delta;
+        if (h < MIN_H) h = MIN_H;
+        const maxH = getMaxH();
+        if (h > maxH) h = maxH;
+        cmdBar.style.height = h + 'px';
+      }
+
+      function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        localStorage.setItem('cmdBarH', cmdBar.offsetHeight);
+      }
+
+      // Double-click resets
+      handle.addEventListener('dblclick', () => {
+        cmdBar.style.height = '';
+        localStorage.removeItem('cmdBarH');
+      });
+
+      // Restore saved height
+      const saved = parseInt(localStorage.getItem('cmdBarH'));
+      if (saved && saved >= MIN_H) {
+        cmdBar.style.height = Math.min(saved, getMaxH()) + 'px';
+      }
+    })();
+
     // ===== VIEW MODE TOGGLE =====
     (function initViewMode() {
       const saved = localStorage.getItem('viewMode');
@@ -3671,6 +4004,21 @@
             clearInterval(waitForGame);
           }
         }, 100);
+      }
+    })();
+
+    // ===== DENSITY TOGGLE (Normal / Compact) =====
+    function toggleDensity() {
+      const panel = document.getElementById('dispatch-panel');
+      const btn = document.getElementById('density-toggle');
+      const isCompact = panel.classList.toggle('compact-mode');
+      btn.textContent = isCompact ? 'NORMAL MODE' : 'COMPACT MODE';
+      localStorage.setItem('densityMode', isCompact ? 'compact' : 'normal');
+    }
+    (function initDensity() {
+      if (localStorage.getItem('densityMode') === 'compact') {
+        document.getElementById('dispatch-panel').classList.add('compact-mode');
+        document.getElementById('density-toggle').textContent = 'NORMAL MODE';
       }
     })();
 

@@ -22,8 +22,8 @@ No build step. No bundler. No tests. The frontend is served as static files from
 
 | File | Lines | Role |
 |------|-------|------|
-| `server.js` | ~1000 | Express server, WebSocket hub, Claude CLI process manager, git/auth/dev-server endpoints |
-| `public/index.html` | ~3400 | Terminal UI, agent cards, status bar, WebSocket client, all CSS inline |
+| `server.js` | ~1100 | Express server, WebSocket hub, Claude CLI process manager, git/auth/dev-server endpoints |
+| `public/index.html` | ~3500 | Terminal UI, agent cards, status bar, WebSocket client, all CSS inline |
 | `public/game/main.js` | ~3500 | Phaser 3 game scene — all rendering, animations, spatial awareness, agent behaviors |
 
 ### Data flow
@@ -90,6 +90,8 @@ Both mechanisms ensure the persona survives session resumption and workspace res
 - Permission prompt HTML stored in `termLines` buffer — `_updatePermInBuffer(permId, newHTML)` syncs DOM changes back to the buffer so they survive terminal rebuilds
 - `selectAgent(id)` returns early if `id === selectedAgent` to prevent re-selecting the same agent (e.g., game click) from wiping the command input
 - Agent card layout uses `flex-basis: 100%` on `.card-status` and `.card-project` to force consistent row structure across all cards at any width. Icon+name wrapped in `.card-identity` (inline-flex, nowrap) to prevent splitting.
+- AWAKE status badge is green (`#50b050`), WORKING is red (`#cc3020`), SLEEPING is muted brown (`#4a3a30`)
+- STOP button (`.cmd-stop-btn`) is intentionally subtle — muted red/brown, no animation. Visible only when agent is working (`updateStopButton()` toggles display).
 
 ### File attachments
 
@@ -117,6 +119,28 @@ The global git identity (email + name) from `git config --global` is applied to 
 ### Split divider
 
 A draggable `#split-divider` between game and terminal panels. `#game-container` uses `flex: none` with explicit width %; `#dispatch-panel` uses `flex: 1`. Ratio persisted to `localStorage('splitPct')`. Clamped 20–80%. Double-click resets to 60%. Game `handleResize()` remaps all positions proportionally on Phaser `scale.resize` event.
+
+### Compact mode
+
+Toggled via `#density-toggle` button. Adds `.compact-mode` class to `#dispatch-panel`. State persisted to `localStorage('densityMode')`. All compact rules are CSS-only overrides (lines ~454–557 in index.html), no HTML changes.
+
+**What compact mode changes:**
+- **Dispatch header/title**: smaller font, muted color (`#4a3020`), no text-shadow
+- **Agent cards**: collapsed to minimal tiles — icon hidden, name hidden, status badge shrunk, compact dot visible, project name inline
+- **Roster grid**: no-wrap, tighter gaps
+- **Status bar**: 3 rows reflowed into 2 flowing lines via `display: contents` on `.sb-row` + `flex-direction: row; flex-wrap: wrap` on `#status-bar`. All `.sb-label` text hidden. Dropdowns/buttons/stats shrunk. Project path clamped to `max-width: 220px` with `flex: 0 1 auto`.
+- **Terminal header** (`#terminal-header`): hidden entirely (`display: none !important` — needs `!important` because `selectAgent()` sets inline `display: flex` via JS)
+- **Command bar**: "MASTER >" label and paperclip button hidden (`.cmd-prompt` display:none), tighter padding
+
+**Key implementation detail:** `.compact-mode` is on `#dispatch-panel`, so all compact selectors are `.compact-mode #target` or `.compact-mode .target`. Elements must be descendants of `#dispatch-panel` for this to work. The `!important` on `#terminal-header` is required because JS sets inline display.
+
+### Response start highlight
+
+The first `term-text` line after each `term-cmd` gets a `term-response-start` class with a faint background tint using the agent's accent color (via `--agent-resp-tint` CSS variable, 8% opacity). Tracked per-agent via `_awaitFirstResp[agentId]` flag — set `true` on `term-cmd`, cleared on first `term-text`. The `firstResp` boolean is stored in `termLines` data so it survives `renderTerminal()` rebuilds.
+
+### Dev server manager
+
+`devServers` Map in server.js keyed by normalized cwd (`replace(/\\/g, '/').toLowerCase()`). States: `off` → `starting` → `on`. Port detection parses stdout/stderr for `localhost:PORT` patterns. 10-second fallback marks as `on` if no port detected. On Windows, `npm run dev` often exits after spawning the actual server as a child — the `close` handler probes the detected port via TCP before declaring `off` (prevents false "OFF" status when the server is still running on an orphaned child process).
 
 ### Resize handling (game)
 

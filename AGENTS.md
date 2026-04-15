@@ -92,11 +92,17 @@ Persona format: 1-2 lines of flavor at response start, then competent work. The 
 
 ## Visual Reference
 
-### Status Dot Colors
+### Status Dot Colors (game)
 - Sleeping: #444455
 - Awake: #44cc44
 - Working: #eebb33
 - Fake working (whip-triggered): #3388ff (blue)
+
+### Status Badge Colors (terminal UI cards)
+- Sleeping: #4a3a30
+- Awake: #50b050 (green)
+- Working: #cc3020 (red, with workPulse animation)
+- Permission pending: #cc8020 (orange, with permPulse animation)
 
 ### Station Positions (fraction of room W/H)
 - Igor: (0.15, 0.30) — top-left
