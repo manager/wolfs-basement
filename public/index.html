@@ -15,7 +15,7 @@
     #game-container { flex: none; width: 60%; height: 100%; position: relative; background: #080808; }
     #game-container canvas { width: 100% !important; height: 100% !important; display: block; }
 
-    body.terminal-mode #game-container { display: none; }
+    body.terminal-mode #game-container { display: none; pointer-events: none; }
     body.terminal-mode #split-divider { display: none; }
     body.terminal-mode #dispatch-panel { width: 100%; border-left: none; }
 
@@ -2320,6 +2320,8 @@
       if (selectedAgent) {
         _agentInputText[selectedAgent] = _getInputText();
         _agentInputHtml[selectedAgent] = _getInputHtml();
+        _agentPendingImages[selectedAgent] = pendingImages;
+        _agentPendingFiles[selectedAgent] = pendingFiles;
       }
       selectedAgent = id;
 
@@ -2355,8 +2357,11 @@
         showFireIndicator(id);
       }
 
-      // Restore per-agent input text
+      // Restore per-agent input text and attachments
       _setInputHtml(_agentInputHtml[id] || '');
+      pendingImages = _agentPendingImages[id] || [];
+      pendingFiles = _agentPendingFiles[id] || [];
+      updateAttachmentIndicator();
       if (agentState[id].status === 'sleeping') {
         _setPlaceholder(`Wake ${AGENT_NAMES[id]}... (or select Project Folder to wake + assign)`);
       } else {
@@ -2915,6 +2920,8 @@
     // ===== PASTE / ATTACHMENTS =====
     let pendingImages = []; // { data: base64, mediaType: string, name: string }
     let pendingFiles = [];  // { name: string, content: string } — text files injected into prompt
+    const _agentPendingImages = {}; // per-agent attachment storage
+    const _agentPendingFiles = {};
 
     function allAttachmentCount() { return pendingImages.length + pendingFiles.length; }
 
@@ -3961,7 +3968,10 @@
           basementBtn.classList.add('inactive');
           terminalBtn.classList.remove('inactive');
           terminalBtn.classList.add('active');
-          if (window.game) window.game.loop.sleep();
+          if (window.game) {
+            window.game.loop.sleep();
+            window.game.input.enabled = false;
+          }
         } else {
           document.body.classList.remove('terminal-mode');
           terminalBtn.classList.remove('active');
@@ -3972,6 +3982,7 @@
           window._applySplitFromStorage();
           if (window.game) {
             window.game.loop.wake();
+            window.game.input.enabled = true;
             // Sync all agent statuses with game visuals
             for (let i = 1; i <= 4; i++) {
               if (window.gameEvents && agentState[i]) {
@@ -4003,6 +4014,7 @@
         const waitForGame = setInterval(() => {
           if (window.game && window.game.scene.scenes[0] && window.game.scene.scenes[0].scene.isActive()) {
             window.game.loop.sleep();
+            window.game.input.enabled = false;
             clearInterval(waitForGame);
           }
         }, 100);
