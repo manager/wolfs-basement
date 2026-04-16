@@ -1436,10 +1436,10 @@
             <div class="sb-item">
               <span class="sb-label">Model</span>
               <select class="sb-select" id="sb-model-select" onchange="setAgentModel(this.value)">
-                <option value="claude-opus-4-6[1m]" selected>Opus 4.6 (1M)</option>
-                <option value="claude-opus-4-6">Opus 4.6</option>
+                <option value="claude-opus-4-7[1m]" selected>Opus 4.7 (1M)</option>
+                <option value="claude-opus-4-7">Opus 4.7</option>
+                <option value="claude-opus-4-6[1m]">Opus 4.6 (1M)</option>
                 <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
               </select>
             </div>
             <div class="sb-item">
@@ -1539,7 +1539,7 @@
         status: 'sleeping',
         name: '',
         termLines: [],
-        model: 'claude-opus-4-6[1m]',
+        model: 'claude-opus-4-7[1m]',
         mode: 'plan',
         cwd: '',
         sessionId: null,
@@ -2740,12 +2740,22 @@
       try {
         const saved = JSON.parse(localStorage.getItem('agentSettings'));
         if (!saved) return;
+        let migrated = false;
         for (let i = 1; i <= 4; i++) {
           if (saved[i]) {
-            if (saved[i].model) agentState[i].model = saved[i].model;
+            if (saved[i].model) {
+              // Migrate legacy Opus 4.6 saved prefs → Opus 4.7 (1M).
+              // Respects explicit non-Opus choices (e.g. Sonnet stays Sonnet).
+              if (/^claude-opus-4-6/.test(saved[i].model)) {
+                saved[i].model = 'claude-opus-4-7[1m]';
+                migrated = true;
+              }
+              agentState[i].model = saved[i].model;
+            }
             if (saved[i].mode) agentState[i].mode = saved[i].mode;
           }
         }
+        if (migrated) localStorage.setItem('agentSettings', JSON.stringify(saved));
       } catch(e) {}
     }
 
@@ -4144,6 +4154,11 @@
       };
 
       let dragging = false;
+      // rAF-throttle Phaser refresh during drag. CSS width updates stay instant
+      // for smooth visual feedback; only the expensive game scale.refresh()
+      // (which triggers full handleResize remapping every agent/object position)
+      // is coalesced to one per animation frame.
+      let rafPending = false;
 
       function onPointerDown(e) {
         e.preventDefault();
@@ -4162,7 +4177,13 @@
         if (pct < MIN_PCT) pct = MIN_PCT;
         if (pct > MAX_PCT) pct = MAX_PCT;
         applySplit(pct);
-        if (window.game) window.game.scale.refresh();
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            rafPending = false;
+            if (window.game) window.game.scale.refresh();
+          });
+        }
       }
 
       function onPointerUp(e) {

@@ -55,6 +55,10 @@ sleeping → summon → awake → command → working → (response) → awake �
 
 **Server → Client:** `agent_status`, `agent_spawned`, `agent_output`, `agent_meta`, `agent_cwd`, `agent_error`, `agent_permission_denied`, `rate_limit`, `shell_mode`, `dev_server_status`, `set_cwd_ready`
 
+### WebSocket origin check
+
+The `wss.on('connection')` handler rejects any Origin that isn't `localhost`/`127.0.0.1` on the server's own `PORT` (see `isAllowedOrigin()` in server.js). Missing Origin is allowed (non-browser clients: node tests, curl). This closes the CSRF-style attack where a malicious site the user visits could open `ws://localhost:PORT` and issue agent commands. **Do not remove** — WS has no other auth layer. If you change the bind host/port or add legitimate external consumers, update the allowlist there.
+
 ### Shell modes
 
 The server supports CMD (default) and WSL. WSL mode converts all paths via `winPathToWsl()` / `wslPathToWin()` and spawns through `wsl.exe`. Claude CLI must be installed inside WSL for WSL mode to work.
@@ -92,6 +96,7 @@ Both mechanisms ensure the persona survives session resumption and workspace res
 - Agent card layout uses `flex-basis: 100%` on `.card-status` and `.card-project` to force consistent row structure across all cards at any width. Icon+name wrapped in `.card-identity` (inline-flex, nowrap) to prevent splitting.
 - AWAKE status badge is green (`#50b050`), WORKING is red (`#cc3020`), SLEEPING is muted brown (`#4a3a30`)
 - STOP button (`.cmd-stop-btn`) is intentionally subtle — muted red/brown, no animation. Visible only when agent is working (`updateStopButton()` toggles display).
+- **Default model** is `claude-opus-4-7[1m]` (Opus 4.7, 1M context) — set in `agentState` init (index.html) and as the `selected` option in the model dropdown. When bumping the default, also add a migration branch in `loadAgentSettings()` that rewrites stale older-model values in `localStorage.agentSettings` so returning users get the new default without losing explicit non-Opus choices (e.g. Sonnet stays Sonnet). Update README's model table too.
 
 ### File attachments
 
@@ -119,6 +124,8 @@ The global git identity (email + name) from `git config --global` is applied to 
 ### Split divider
 
 A draggable `#split-divider` between game and terminal panels. `#game-container` uses `flex: none` with explicit width %; `#dispatch-panel` uses `flex: 1`. Ratio persisted to `localStorage('splitPct')`. Clamped 20–80%. Double-click resets to 60%. Game `handleResize()` remaps all positions proportionally on Phaser `scale.resize` event.
+
+**Perf note:** During drag, CSS width update stays instant for smooth visual feedback, but `window.game.scale.refresh()` (which triggers the full `handleResize` remap of every agent/object position) is coalesced via `requestAnimationFrame` + a `rafPending` flag. Any future code that calls `scale.refresh()` on a pointer-driven interaction should use the same rAF-throttle pattern.
 
 ### Compact mode
 

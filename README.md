@@ -131,8 +131,9 @@ Each agent can be configured independently:
 
 | Model | ID |
 |-------|----|
+| Opus 4.7 (1M context) — **default** | `claude-opus-4-7[1m]` |
+| Opus 4.7 | `claude-opus-4-7` |
 | Opus 4.6 (1M context) | `claude-opus-4-6[1m]` |
-| Opus 4.6 | `claude-opus-4-6` |
 | Sonnet 4.6 | `claude-sonnet-4-6` |
 | Haiku 4.5 | `claude-haiku-4-5-20251001` |
 

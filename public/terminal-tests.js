@@ -428,10 +428,10 @@
     assert('Option count', 'Has 4 model options', opts.length === 4);
 
     const vals = opts.map(o => o.value);
+    assert('Opus 4.7 (1M)', 'Option available', vals.includes('claude-opus-4-7[1m]'));
+    assert('Opus 4.7', 'Option available', vals.includes('claude-opus-4-7'));
     assert('Opus 4.6 (1M)', 'Option available', vals.includes('claude-opus-4-6[1m]'));
-    assert('Opus 4.6', 'Option available', vals.includes('claude-opus-4-6'));
     assert('Sonnet 4.6', 'Option available', vals.includes('claude-sonnet-4-6'));
-    assert('Haiku 4.5', 'Option available', vals.includes('claude-haiku-4-5-20251001'));
 
     // Verify it reflects agent state
     const sel = getSelectedAgent();

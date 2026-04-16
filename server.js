@@ -817,7 +817,30 @@ function sleepAgent(id) {
 
 // --- WebSocket Handler ---
 
-wss.on('connection', (ws) => {
+// Origin check: reject WS connections from pages outside our own host.
+// Server binds to 127.0.0.1, but any website the browser visits can still
+// open ws://localhost:PORT — this blocks that CSRF-style attack path.
+// Missing Origin (undefined) is allowed for non-browser clients (node/curl).
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') return false;
+    // Require same port we're bound to (or empty for default 80/443 which we don't use)
+    if (u.port && u.port !== String(PORT)) return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+wss.on('connection', (ws, req) => {
+  const origin = req.headers && req.headers.origin;
+  if (!isAllowedOrigin(origin)) {
+    debug('Rejecting WS connection from origin:', origin);
+    try { ws.close(1008, 'Invalid origin'); } catch (e) {}
+    return;
+  }
   debug('Client connected');
 
   // Send current state of all agents
