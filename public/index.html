@@ -3943,7 +3943,10 @@
       const cwd = agentState[selectedAgent].cwd;
       if (!cwd) return;
       closeServerMenu();
-      wsSend({ type: 'dev_server', action, cwd });
+      const key = cwd.replace(/\\/g, '/').toLowerCase();
+      const ds = _devServerState[key];
+      const port = ds && ds.port ? ds.port : null;
+      wsSend({ type: 'dev_server', action, cwd, port });
     }
 
     // Listen for dev server status broadcasts

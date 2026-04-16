@@ -102,18 +102,25 @@ function shellKill(pid, opts) {
   } catch (e) {}
 }
 
-function killPort(port, opts) {
+function killPort(port) {
   if (!port || process.platform !== 'win32' || shellMode === 'wsl') return;
-  const sync = opts && opts.sync;
   try {
-    const args = ['/c', `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /pid %a /t /f`];
-    if (sync) {
-      spawnSync('cmd', args, { shell: false, stdio: 'ignore', windowsHide: true, timeout: 5000 });
-    } else {
-      const proc = spawn('cmd', args, { shell: false, stdio: 'ignore', windowsHide: true });
-      proc.on('error', () => {});
+    // Parse netstat output in Node to find PIDs — the cmd.exe for/f approach breaks on quote escaping
+    const r = spawnSync('netstat', ['-ano'], { windowsHide: true, timeout: 5000 });
+    if (!r.stdout) return;
+    const pids = new Set();
+    for (const line of r.stdout.toString().split('\n')) {
+      if (line.includes(':' + port) && line.includes('LISTENING')) {
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && /^\d+$/.test(pid) && pid !== '0') pids.add(pid);
+      }
     }
-  } catch (e) {}
+    for (const pid of pids) {
+      spawnSync('taskkill', ['/pid', pid, '/t', '/f'], { shell: false, stdio: 'ignore', windowsHide: true, timeout: 5000 });
+    }
+  } catch (e) {
+    debug('[killPort] Failed to kill port ' + port + ':', e.message);
+  }
 }
 
 function detectWSL() {
@@ -994,7 +1001,7 @@ wss.on('connection', (ws) => {
         const cwd = msg.cwd;
         if (!cwd) break;
         if (msg.action === 'start') startDevServer(cwd);
-        else if (msg.action === 'stop') stopDevServer(cwd);
+        else if (msg.action === 'stop') stopDevServer(cwd, msg.port);
         else if (msg.action === 'restart') restartDevServer(cwd);
         else if (msg.action === 'status') broadcastDevServer(cwd);
         break;
@@ -1142,20 +1149,55 @@ function startDevServer(cwd) {
   }, 10000);
 }
 
-function stopDevServer(cwd) {
+function stopDevServer(cwd, clientPort) {
   const key = devServerKey(cwd);
   const ds = devServers.get(key);
-  if (!ds || !ds.process) {
-    if (ds) { ds.status = 'off'; ds.port = null; }
+  const port = (ds && ds.port) || clientPort || null;
+  debug(`[DevServer] stopDevServer cwd=${cwd} port=${port} hasProcess=${!!(ds && ds.process)}`);
+  if (ds && ds.process) shellKill(ds.process.pid);
+  // Always kill by port — covers agent-started servers and orphaned processes
+  if (port) killPort(port);
+  // Verify the port is actually dead before declaring off
+  if (port) {
+    const probe = net.connect(port, '127.0.0.1');
+    probe.on('connect', () => {
+      probe.destroy();
+      // Still alive — retry kill once more
+      debug(`[DevServer] Port ${port} still alive after kill, retrying...`);
+      killPort(port);
+      // Give taskkill a moment then verify again
+      setTimeout(() => {
+        const probe2 = net.connect(port, '127.0.0.1');
+        probe2.on('connect', () => {
+          probe2.destroy();
+          debug(`[DevServer] Port ${port} still alive after retry — giving up`);
+          if (ds) { ds.process = null; ds.status = 'on'; ds.port = port; }
+          broadcastDevServer(cwd);
+        });
+        probe2.on('error', () => {
+          debug(`[DevServer] Port ${port} confirmed dead after retry`);
+          if (ds) { ds.process = null; ds.status = 'off'; ds.port = null; }
+          broadcastDevServer(cwd);
+        });
+        probe2.setTimeout(2000, () => { probe2.destroy(); if (ds) { ds.process = null; ds.status = 'off'; ds.port = null; } broadcastDevServer(cwd); });
+      }, 500);
+    });
+    probe.on('error', () => {
+      // Port is dead — success
+      debug(`[DevServer] Port ${port} confirmed dead`);
+      if (ds) { ds.process = null; ds.status = 'off'; ds.port = null; }
+      broadcastDevServer(cwd);
+    });
+    probe.setTimeout(2000, () => {
+      probe.destroy();
+      // Timeout = probably dead
+      if (ds) { ds.process = null; ds.status = 'off'; ds.port = null; }
+      broadcastDevServer(cwd);
+    });
+  } else {
+    if (ds) { ds.process = null; ds.status = 'off'; ds.port = null; }
     broadcastDevServer(cwd);
-    return;
   }
-  shellKill(ds.process.pid);
-  killPort(ds.port);
-  ds.process = null;
-  ds.status = 'off';
-  ds.port = null;
-  broadcastDevServer(cwd);
 }
 
 function restartDevServer(cwd) {
@@ -1207,7 +1249,7 @@ function shutdown() {
   }
   for (const [key, ds] of devServers) {
     if (ds.process) shellKill(ds.process.pid, { sync: true });
-    if (ds.port) killPort(ds.port, { sync: true });
+    if (ds.port) killPort(ds.port);
   }
   process.exit(0);
 }
