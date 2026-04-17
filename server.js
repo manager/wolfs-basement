@@ -793,10 +793,16 @@ function sleepAgent(id) {
   const agent = agents.get(id);
   if (!agent) return;
 
-  // Stop dev server for this agent's project first
+  // Stop dev server for this agent's project — but only if no other live agent
+  // still works on the same CWD. Otherwise the surviving agents lose the server.
   const cwd = agentCwd[id] || agent.cwd;
   if (cwd) {
-    stopDevServer(cwd);
+    const key = devServerKey(cwd);
+    const othersOnSameCwd = [...agents.values()].some(a =>
+      a !== agent && (agentCwd[a.id] || a.cwd) &&
+      devServerKey(agentCwd[a.id] || a.cwd) === key
+    );
+    if (!othersOnSameCwd) stopDevServer(cwd);
   }
 
   if (agent.process) {
