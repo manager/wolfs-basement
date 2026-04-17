@@ -149,6 +149,8 @@ The first `term-text` line after each `term-cmd` gets a `term-response-start` cl
 
 `devServers` Map in server.js keyed by normalized cwd (`replace(/\\/g, '/').toLowerCase()`). States: `off` → `starting` → `on`. Port detection parses stdout/stderr for `localhost:PORT` patterns. 10-second fallback marks as `on` if no port detected. On Windows, `npm run dev` often exits after spawning the actual server as a child — the `close` handler probes the detected port via TCP before declaring `off` (prevents false "OFF" status when the server is still running on an orphaned child process).
 
+**Persona injection:** When `sendCommand` builds the `--append-system-prompt` string, it looks up `devServers.get(devServerKey(workDir))` and, if `status === 'on'`, appends a `[HARNESS NOTICE]` telling the agent a dev server is already running at `http://localhost:<port>` and not to run `npm run dev`. This prevents the agent from spawning a duplicate Vite/Next process that binds a different port (e.g. 5174 when 5173 is taken). The notice is rebuilt per-command, so stopping the harness server clears it on the next send.
+
 ### Resize handling (game)
 
 `handleResize(ow, oh, nw, nh)` in main.js remaps: walkBounds, pentagram, worldObjects, stationPositions, blood text positions, and all agent positions (current x/y, homeX/Y, sleepX/Y, walkTarget, yarn ball) using proportional scaling. Called via `this.scale.on('resize', ...)`. Scale factor `S = 1.8` is a constant, not resized.

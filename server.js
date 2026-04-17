@@ -512,9 +512,16 @@ function sendCommand(id, text, model, mode, images, label) {
   // Build CLI args
   const args = ['-p', '--verbose', '--output-format', 'stream-json', '--input-format', 'stream-json'];
 
-  // Inject agent persona via CLI flag — never write into the target project
+  // Inject agent persona via CLI flag — never write into the target project.
+  // Also append a dev-server notice when the harness is already running one
+  // for this cwd, so the agent doesn't spawn a duplicate via `npm run dev`.
   if (AGENT_PERSONAS[id]) {
-    args.push('--append-system-prompt', AGENT_PERSONAS[id]);
+    let systemPrompt = AGENT_PERSONAS[id];
+    const ds = devServers.get(devServerKey(workDir));
+    if (ds && ds.status === 'on' && ds.port) {
+      systemPrompt += `\n\n[HARNESS NOTICE] A dev server for this project is already running at http://localhost:${ds.port} (started by the Wolf's Basement harness). Do NOT run \`npm run dev\`, \`npm start\`, \`vite\`, or any equivalent command — it will bind a different port and confuse the user. Use the existing server at the URL above for any testing.`;
+    }
+    args.push('--append-system-prompt', systemPrompt);
   }
 
   // Model selection
