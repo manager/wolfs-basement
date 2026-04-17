@@ -5,3 +5,4 @@ workspaces/
 !.env.example
 .claude/
 config.json
+server-crash.log

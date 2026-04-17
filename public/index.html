@@ -831,6 +831,18 @@
     #terminal-output .term-tool .tool-group-details { display: none; padding: 2px 0 2px 16px; color: #4a6a7a; }
     #terminal-output .term-tool.tool-expanded .tool-group-details { display: block; }
     #terminal-output .term-tool .tool-group-details div { padding: 1px 0; }
+    /* Single-tool collapsed summary (non-engineer friendly default) */
+    #terminal-output .term-tool .tool-single-summary { cursor: pointer; color: #5a7a9a; }
+    #terminal-output .term-tool .tool-single-summary:hover { color: #8aaacc; }
+    /* Collapsible code block (non-engineer friendly default) */
+    #terminal-output .md-code { margin: 6px 0; border-left: 2px solid #3a2a1a; padding: 2px 0 2px 10px; }
+    #terminal-output .md-code-header { cursor: pointer; color: #8a6a40; font-size: 12px; user-select: none; display: inline-block; }
+    #terminal-output .md-code-header:hover { color: #ccaa60; }
+    #terminal-output .md-code-toggle { display: inline-block; transition: transform 0.15s; margin-right: 4px; color: #6a4820; }
+    #terminal-output .md-code.expanded .md-code-toggle { transform: rotate(90deg); }
+    #terminal-output .md-code-body { display: none; margin-top: 4px; }
+    #terminal-output .md-code.expanded .md-code-body { display: block; }
+    #terminal-output .md-code-body pre { margin: 0; }
     #terminal-output .term-error { color: #cc4040; }
     #terminal-output .term-result { color: #7a6a5a; font-size: 11px; padding: 2px 0 2px 10px; border-left: 2px solid #2a2018; margin: 2px 0; max-height: 120px; overflow-y: auto; }
     #terminal-output .term-system { color: #5a4a3a; font-style: italic; }
@@ -1546,6 +1558,8 @@
         awakeAt: null,     // timestamp when agent woke up
         idleSince: null,   // timestamp when agent last became idle (awake but not working)
         messageCount: 0,   // number of user prompts in current session
+        _nextBlockId: 1,   // monotonic id for collapsible blocks (tools, code) within this agent
+        _expandedBlocks: new Set(), // keys of blocks the user has expanded (persists across renderTerminal)
       };
     }
     loadAgentSettings();
@@ -1690,11 +1704,12 @@
           // Load buffered history into terminal
           agentState[msg.id].termLines = [];
           msg.lines.forEach(l => {
+            const lineId = agentState[msg.id]._nextBlockId++;
             // Support both old format (plain string) and new format ({text, cls, ts})
             if (typeof l === 'string') {
-              agentState[msg.id].termLines.push({ text: l, cls: 'term-text', ts: null });
+              agentState[msg.id].termLines.push({ text: l, cls: 'term-text', ts: null, lineId });
             } else {
-              agentState[msg.id].termLines.push({ text: l.text, cls: l.cls || 'term-text', ts: l.ts || null });
+              agentState[msg.id].termLines.push({ text: l.text, cls: l.cls || 'term-text', ts: l.ts || null, lineId });
             }
           });
           if (selectedAgent === msg.id) renderTerminal(msg.id);
@@ -1842,8 +1857,10 @@
           firstResp = true;
           _awaitFirstResp[agentId] = false;
         }
+        // Assign a stable line id so collapsible blocks (tools, code) can persist their expanded state across re-renders
+        const lineId = agentState[agentId]._nextBlockId++;
         // Store in agent's terminal
-        agentState[agentId].termLines.push({ text, cls: cssClass, ts, rawHTML: !!rawHTML, firstResp });
+        agentState[agentId].termLines.push({ text, cls: cssClass, ts, rawHTML: !!rawHTML, firstResp, lineId });
         // Cap at 500 lines
         if (agentState[agentId].termLines.length > 500) {
           agentState[agentId].termLines = agentState[agentId].termLines.slice(-400);
@@ -1858,7 +1875,7 @@
               // Extract short tool label from text: "Name [tool]> Read → path" → "Read → filename"
               const shortLabel = _toolShortLabel(text);
               if (!lastLine._toolGroup) {
-                // Convert single line into a group
+                // Convert single line into a group (keeps the original block key so expand state survives)
                 const firstLabel = _toolShortLabel(lastLine._toolFullText || lastLine.textContent);
                 lastLine._toolGroup = [firstLabel];
                 lastLine._toolFullText = lastLine._toolFullText || lastLine.textContent;
@@ -1871,9 +1888,9 @@
                 lastLine._toolGroup = lastLine._toolGroup.slice(-40);
                 lastLine._toolFullTexts = lastLine._toolFullTexts.slice(-40);
               }
-              // Update display: show collapsed summary
+              // Update display: show collapsed summary (classList.tool-expanded is preserved by innerHTML replacement)
               const count = lastLine._toolGroup.length;
-              lastLine.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
+              lastLine.innerHTML = `<span class="tool-group-toggle" onclick="toggleBlock(event)">▸</span>` +
                 `<span class="tool-group-summary">${count} tool calls: ${lastLine._toolGroup.map(l => escapeHtml(l)).join(', ')}</span>` +
                 `<div class="tool-group-details">${lastLine._toolFullTexts.map(t => `<div>${escapeHtml(t)}</div>`).join('')}</div>`;
               // Keep fire at bottom
@@ -1882,7 +1899,7 @@
               return;
             }
           }
-          appendLineToDOM(text, cssClass, ts, rawHTML, firstResp);
+          appendLineToDOM(text, cssClass, ts, rawHTML, firstResp, lineId);
           // Store full text on tool lines for future grouping
           if (cssClass === 'term-tool') {
             const out = document.getElementById('terminal-output');
@@ -1913,15 +1930,30 @@
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function renderMarkdown(text) {
+    function renderMarkdown(text, lineId) {
       // Split into lines for block-level processing
       const lines = text.split('\n');
       const out = [];
       let inCodeBlock = false;
       let codeBlockContent = [];
       let codeBlockLang = '';
+      let codeBlockIdx = 0;
       let inTable = false;
       let tableRows = [];
+
+      // Builds a collapsed code block. Non-engineer friendly default — shown as "▸ js · 15 lines".
+      function renderCodeBlock(contentStr, lang) {
+        const lineCount = contentStr.split('\n').length;
+        const summary = (lang ? escapeHtml(lang) + ' · ' : '') + lineCount + ' line' + (lineCount !== 1 ? 's' : '');
+        const key = lineId != null ? `code-${lineId}-${codeBlockIdx++}` : '';
+        const expanded = key && selectedAgent && agentState[selectedAgent] && agentState[selectedAgent]._expandedBlocks && agentState[selectedAgent]._expandedBlocks.has(key);
+        const cls = 'md-code' + (expanded ? ' expanded' : '');
+        const keyAttr = key ? ` data-block-key="${key}"` : '';
+        return `<div class="${cls}"${keyAttr}>` +
+          `<div class="md-code-header" onclick="toggleBlock(event)"><span class="md-code-toggle">▸</span><span class="md-code-summary">${summary}</span></div>` +
+          `<div class="md-code-body"><pre><button class="code-copy-btn" onclick="copyCodeBlock(this)">COPY</button><code>${escapeHtml(contentStr)}</code></pre></div>` +
+          `</div>`;
+      }
 
       function flushTable() {
         if (!tableRows.length) return;
@@ -1955,7 +1987,7 @@
             codeBlockContent = [];
           } else {
             inCodeBlock = false;
-            out.push(`<pre><button class="code-copy-btn" onclick="copyCodeBlock(this)">COPY</button><code>${escapeHtml(codeBlockContent.join('\n'))}</code></pre>`);
+            out.push(renderCodeBlock(codeBlockContent.join('\n'), codeBlockLang));
           }
           continue;
         }
@@ -2021,11 +2053,30 @@
 
       // Close unclosed code block
       if (inCodeBlock && codeBlockContent.length) {
-        out.push(`<pre><button class="code-copy-btn" onclick="copyCodeBlock(this)">COPY</button><code>${escapeHtml(codeBlockContent.join('\n'))}</code></pre>`);
+        out.push(renderCodeBlock(codeBlockContent.join('\n'), codeBlockLang));
       }
 
       return out.join('');
     }
+
+    // Toggle collapsible block (tool line / tool group / code block).
+    // Persists expanded state per-agent in _expandedBlocks so renderTerminal rebuilds keep state.
+    function toggleBlock(ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      const target = ev && ev.target;
+      if (!target) return;
+      const wrap = target.closest('[data-block-key]');
+      if (!wrap) return;
+      const key = wrap.dataset.blockKey;
+      const isCode = wrap.classList.contains('md-code');
+      const expClass = isCode ? 'expanded' : 'tool-expanded';
+      const nowExpanded = wrap.classList.toggle(expClass);
+      if (!selectedAgent || !agentState[selectedAgent]) return;
+      if (!agentState[selectedAgent]._expandedBlocks) agentState[selectedAgent]._expandedBlocks = new Set();
+      const set = agentState[selectedAgent]._expandedBlocks;
+      if (nowExpanded) set.add(key); else set.delete(key);
+    }
+    window.toggleBlock = toggleBlock;
 
     function copyCodeBlock(btn) {
       const code = btn.parentElement.querySelector('code');
@@ -2076,7 +2127,7 @@
       return '#6a5040';
     }
 
-    function formatTermLine(el, text, cssClass, ts) {
+    function formatTermLine(el, text, cssClass, ts, lineId) {
       const tsHtml = ts ? `<span class="term-timestamp">${formatTimestamp(ts)}</span>` : '';
       if (cssClass === 'term-cmd') {
         // User command: MASTER + timestamp + > text
@@ -2093,9 +2144,9 @@
         if (agentMatch) {
           const agentName = agentMatch[1].trim();
           const body = text.slice(agentMatch[0].length);
-          bodyHtml = `<span class="agent-resp-tag" style="color:${agentColor}">${escapeHtml(agentName)} &gt;</span>${tsHtml} ${renderMarkdown(body)}`;
+          bodyHtml = `<span class="agent-resp-tag" style="color:${agentColor}">${escapeHtml(agentName)} &gt;</span>${tsHtml} ${renderMarkdown(body, lineId)}`;
         } else {
-          bodyHtml = renderMarkdown(text);
+          bodyHtml = renderMarkdown(text, lineId);
         }
         // Add action buttons for agent responses (term-text only)
         if (cssClass === 'term-text') {
@@ -2103,15 +2154,24 @@
         }
         el.innerHTML = bodyHtml;
       } else if (cssClass === 'term-tool') {
-        // Tool output: first line is header, rest is content body (e.g. Write file content)
+        // Tool output: collapsed by default with ▸ toggle. Non-engineer friendly default — click to reveal full content.
         const nlIdx = text.indexOf('\n');
-        if (nlIdx !== -1) {
-          const header = text.slice(0, nlIdx);
-          const body = text.slice(nlIdx + 1);
-          el.innerHTML = `<div>${escapeHtml(header)}</div><div class="term-tool-body">${renderMarkdown(body)}</div>`;
-        } else {
-          el.textContent = text;
+        const header = nlIdx !== -1 ? text.slice(0, nlIdx) : text;
+        const body = nlIdx !== -1 ? text.slice(nlIdx + 1) : '';
+        const shortLabel = _toolShortLabel(header);
+        const key = lineId != null ? `tool-${lineId}` : '';
+        if (key) {
+          el.dataset.blockKey = key;
+          if (selectedAgent && agentState[selectedAgent]?._expandedBlocks?.has(key)) {
+            el.classList.add('tool-expanded');
+          }
         }
+        const toggle = `<span class="tool-group-toggle" onclick="toggleBlock(event)">▸</span>`;
+        const summary = `<span class="tool-single-summary" onclick="toggleBlock(event)">${escapeHtml(shortLabel)}</span>`;
+        const details = `<div class="tool-group-details"><div>${escapeHtml(header)}</div>` +
+          (body ? `<div class="term-tool-body">${renderMarkdown(body, lineId)}</div>` : '') +
+          `</div>`;
+        el.innerHTML = toggle + summary + details;
       } else {
         el.textContent = text;
       }
@@ -2287,16 +2347,17 @@
       selectAgent(targetId);
     }
 
-    function appendLineToDOM(text, cssClass, ts, rawHTML, firstResp) {
+    function appendLineToDOM(text, cssClass, ts, rawHTML, firstResp, lineId) {
       const out = document.getElementById('terminal-output');
       // Only auto-scroll if user is near the bottom (within 80px)
       const nearBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 80;
       const line = document.createElement('div');
       line.className = `term-line ${cssClass}${firstResp ? ' term-response-start' : ''}`;
+      if (lineId != null) line.dataset.lineId = lineId;
       if (rawHTML) {
         line.innerHTML = text;
       } else {
-        formatTermLine(line, text, cssClass, ts);
+        formatTermLine(line, text, cssClass, ts, lineId);
       }
       // Set tint color for response start highlight
       if (firstResp) {
@@ -2322,11 +2383,21 @@
         if (toolGroup.length === 0) return;
         const el = document.createElement('div');
         el.className = 'term-line term-tool';
+        const firstLineId = toolGroup[0].lineId;
+        if (firstLineId != null) el.dataset.lineId = firstLineId;
         if (toolGroup.length === 1) {
-          formatTermLine(el, toolGroup[0].text, 'term-tool', toolGroup[0].ts);
+          // Single tool — collapsed by default; formatTermLine handles expanded-state restore
+          formatTermLine(el, toolGroup[0].text, 'term-tool', toolGroup[0].ts, firstLineId);
         } else {
+          const key = firstLineId != null ? `tool-${firstLineId}` : '';
+          if (key) {
+            el.dataset.blockKey = key;
+            if (selectedAgent && agentState[selectedAgent]?._expandedBlocks?.has(key)) {
+              el.classList.add('tool-expanded');
+            }
+          }
           const labels = toolGroup.map(t => _toolShortLabel(t.text));
-          el.innerHTML = `<span class="tool-group-toggle" onclick="this.parentElement.classList.toggle('tool-expanded')">▸</span>` +
+          el.innerHTML = `<span class="tool-group-toggle" onclick="toggleBlock(event)">▸</span>` +
             `<span class="tool-group-summary">${toolGroup.length} tool calls: ${labels.map(l => escapeHtml(l)).join(', ')}</span>` +
             `<div class="tool-group-details">${toolGroup.map(t => `<div>${escapeHtml(t.text)}</div>`).join('')}</div>`;
         }
@@ -2340,10 +2411,11 @@
           flushToolGroup();
           const el = document.createElement('div');
           el.className = `term-line ${l.cls}${l.firstResp ? ' term-response-start' : ''}`;
+          if (l.lineId != null) el.dataset.lineId = l.lineId;
           if (l.rawHTML) {
             el.innerHTML = l.text;
           } else {
-            formatTermLine(el, l.text, l.cls, l.ts);
+            formatTermLine(el, l.text, l.cls, l.ts, l.lineId);
           }
           if (l.firstResp) {
             const color = el.style.getPropertyValue('--agent-resp-color') || '#6a5040';
@@ -2904,6 +2976,7 @@
     function finalizeClear(agentId) {
       wsSend({ type: 'clear', id: agentId });
       agentState[agentId].termLines = [];
+      if (agentState[agentId]._expandedBlocks) agentState[agentId]._expandedBlocks.clear();
       agentState[agentId].sessionId = null;
       agentState[agentId].tokensUsed = 0;
       agentState[agentId].tokensTotal = 0;

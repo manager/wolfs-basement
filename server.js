@@ -834,6 +834,10 @@ function isAllowedOrigin(origin) {
   }
 }
 
+wss.on('error', (err) => {
+  console.error('[wss error]', err && err.message);
+});
+
 wss.on('connection', (ws, req) => {
   const origin = req.headers && req.headers.origin;
   if (!isAllowedOrigin(origin)) {
@@ -843,38 +847,50 @@ wss.on('connection', (ws, req) => {
   }
   debug('Client connected');
 
-  // Send current state of all agents
-  for (let i = 1; i <= MAX_AGENTS; i++) {
-    const info = getAgentInfo(i);
-    ws.send(JSON.stringify({ type: 'agent_status', ...info }));
-    // Send stored cwd if available
-    const ag = agents.get(i);
-    if (ag && ag.cwd) {
-      ws.send(JSON.stringify({ type: 'agent_cwd', id: i, cwd: ag.cwd, isSelf: isSelfProject(ag.cwd) }));
-    }
-    // Send buffered output
-    const agent = agents.get(i);
-    if (agent && agent.outputBuffer.length > 0) {
-      ws.send(JSON.stringify({
-        type: 'agent_history',
-        id: i,
-        lines: agent.outputBuffer
-      }));
-    }
-    // Send last known token usage
-    if (agent && (agent.lastUsage || agent.lastModel)) {
-      ws.send(JSON.stringify({
-        type: 'agent_meta',
-        id: i,
-        usage: agent.lastUsage || null,
-        model: agent.lastModel || null,
-        session_id: agent.sessionId || null
-      }));
-    }
-  }
+  // Without this listener a TCP reset (laptop sleep, network flap, tab killed)
+  // surfaces as an 'error' event with no listener → uncaughtException → dead server.
+  ws.on('error', (err) => {
+    debug('WS client error:', err && err.message);
+  });
 
-  // Send current shell mode
-  ws.send(JSON.stringify({ type: 'shell_mode', mode: shellMode }));
+  // Send current state of all agents. Wrapped because the client may disconnect
+  // mid-init; ws.send() then throws synchronously.
+  try {
+    for (let i = 1; i <= MAX_AGENTS; i++) {
+      const info = getAgentInfo(i);
+      ws.send(JSON.stringify({ type: 'agent_status', ...info }));
+      // Send stored cwd if available
+      const ag = agents.get(i);
+      if (ag && ag.cwd) {
+        ws.send(JSON.stringify({ type: 'agent_cwd', id: i, cwd: ag.cwd, isSelf: isSelfProject(ag.cwd) }));
+      }
+      // Send buffered output
+      const agent = agents.get(i);
+      if (agent && agent.outputBuffer.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'agent_history',
+          id: i,
+          lines: agent.outputBuffer
+        }));
+      }
+      // Send last known token usage
+      if (agent && (agent.lastUsage || agent.lastModel)) {
+        ws.send(JSON.stringify({
+          type: 'agent_meta',
+          id: i,
+          usage: agent.lastUsage || null,
+          model: agent.lastModel || null,
+          session_id: agent.sessionId || null
+        }));
+      }
+    }
+
+    // Send current shell mode
+    ws.send(JSON.stringify({ type: 'shell_mode', mode: shellMode }));
+  } catch (e) {
+    debug('Client disconnected during init:', e.message);
+    return;
+  }
 
   ws.on('message', (raw) => {
     let msg;
@@ -1278,3 +1294,19 @@ function shutdown() {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// Crash guards — without these, any stray error (e.g. a WS 'error' event with no
+// listener) kills the whole server silently. Log stack to server-crash.log and
+// keep running. Local dev tool has no supervisor; staying alive beats dying mute.
+function logCrash(kind, err) {
+  const line = `[${new Date().toISOString()}] ${kind}: ${err && err.stack || err}\n`;
+  try { fs.appendFileSync(path.join(__dirname, 'server-crash.log'), line); } catch (_) {}
+}
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err && err.stack || err);
+  logCrash('uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason && reason.stack || reason);
+  logCrash('unhandledRejection', reason);
+});
