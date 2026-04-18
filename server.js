@@ -515,13 +515,30 @@ function sendCommand(id, text, model, mode, images, label) {
   // Inject agent persona via CLI flag — never write into the target project.
   // Also append a dev-server notice when the harness is already running one
   // for this cwd, so the agent doesn't spawn a duplicate via `npm run dev`.
+  //
+  // CRITICAL — file, not inline string: on Windows we spawn with `shell: true`
+  // (required for .cmd binaries), which routes through cmd.exe. The persona
+  // strings contain literal double quotes (e.g. "y-yes Master", "as you
+  // command, Master"). When Node joins argv into a command line for cmd.exe,
+  // those embedded `"` can close the --append-system-prompt argument early,
+  // so cmd.exe re-tokenizes the rest — and flags that follow
+  // (--dangerously-skip-permissions, --resume <uuid>, --allowed-tools) get
+  // eaten as mangled persona fragments instead of reaching claude.exe.
+  // Symptom: second+ command shows [Permission mode: Normal] even with
+  // Bypass forced, and the agent reports "start of a new conversation"
+  // because --resume silently failed. Using --append-system-prompt-file
+  // keeps the only problematic arg (the long persona with quotes) off the
+  // command line entirely. All other args (uuids, model names, flag values)
+  // are shell-safe.
   if (AGENT_PERSONAS[id]) {
     let systemPrompt = AGENT_PERSONAS[id];
     const ds = devServers.get(devServerKey(workDir));
     if (ds && ds.status === 'on' && ds.port) {
       systemPrompt += `\n\n[HARNESS NOTICE] A dev server for this project is already running at http://localhost:${ds.port} (started by the Wolf's Basement harness). Do NOT run \`npm run dev\`, \`npm start\`, \`vite\`, or any equivalent command — it will bind a different port and confuse the user. Use the existing server at the URL above for any testing.`;
     }
-    args.push('--append-system-prompt', systemPrompt);
+    const promptFile = path.join(defaultDir, '.persona-prompt');
+    fs.writeFileSync(promptFile, systemPrompt, 'utf-8');
+    args.push('--append-system-prompt-file', promptFile);
   }
 
   // Model selection
@@ -595,7 +612,20 @@ function sendCommand(id, text, model, mode, images, label) {
       windowsHide: true,
     });
   } else {
-    proc = spawn(CLAUDE_BIN, args, {
+    // CRITICAL — quote args with whitespace for cmd.exe: `shell: true` is
+    // required to launch claude.cmd on Windows (Node blocks direct .cmd spawn
+    // since CVE-2024-27980), but with shell:true Node does NOT auto-quote
+    // args. It builds `cmd.exe /d /s /c "claude.cmd arg1 arg2 ..."` by simply
+    // joining args with spaces. Any arg containing a space (e.g. the persona
+    // file path `D:\wolf vibecode\...\agent-N\.persona-prompt`) gets split by
+    // cmd.exe at the space — the CLI receives only `D:\wolf` and errors with
+    // "Append system prompt file not found". Wrapping such args in double
+    // quotes makes cmd.exe tokenize them as a single argument. Filesystem
+    // paths on Windows can't contain literal `"`, so plain-wrap is safe for
+    // paths; we avoid passing any other arg value that could contain an
+    // embedded `"` (personas live in a file, model names/uuids are quote-free).
+    const cmdSafeArgs = args.map(a => (typeof a === 'string' && /\s/.test(a) ? `"${a}"` : a));
+    proc = spawn(CLAUDE_BIN, cmdSafeArgs, {
       cwd: workDir,
       shell: true,
       env: agentEnv,

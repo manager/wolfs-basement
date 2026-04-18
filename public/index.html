@@ -3582,6 +3582,24 @@
         if (state.status === 'sleeping') {
           wsSend({ type: 'summon', id: selectedAgent });
         }
+        // Read mode + model from the DOM dropdowns directly — state.mode can desync
+        // with UI intent (stale localStorage, race with setAgentMode, dropdown
+        // reinitialization — the exact class of bugs noted in CLAUDE.md for
+        // permission_allow_all). The dropdown is what the user SEES and has last
+        // acted on → that's the source of truth. If they've diverged from state,
+        // resync state so future reads (and saveAgentSettings) agree.
+        // Symptom this fixes: user has MODE=Bypass in the UI, sends a second
+        // command, but the CLI spawns without --dangerously-skip-permissions and
+        // shows [Permission mode: Normal], re-prompting for Edit/Bash permissions.
+        const modeEl = document.getElementById('sb-mode-select');
+        const modelEl = document.getElementById('sb-model-select');
+        const liveMode = (modeEl && modeEl.value) || state.mode;
+        const liveModel = (modelEl && modelEl.value) || state.model;
+        if (liveMode !== state.mode || liveModel !== state.model) {
+          state.mode = liveMode;
+          state.model = liveModel;
+          saveAgentSettings();
+        }
         // Build prompt: prepend text file contents, then user text
         let text = rawText;
         if (pendingFiles.length > 0) {
@@ -3589,7 +3607,7 @@
           const prefix = fileParts.join('\n\n');
           text = text ? prefix + '\n\n' + text : prefix + '\n\nAnalyze the attached file(s).';
         }
-        const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: state.model, mode: state.mode };
+        const msg = { type: 'command', id: selectedAgent, text: text || 'Analyze the attached image(s).', model: liveModel, mode: liveMode };
         if (pendingImages.length > 0) {
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
         }
