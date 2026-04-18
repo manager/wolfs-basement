@@ -3079,6 +3079,165 @@
       const prompt = 'Save and push my work. Steps: 1) Run git status and git diff to see all changes. 2) If there are uncommitted changes, stage them all with git add, write a clear meaningful commit message summarizing what changed and why, and commit. 3) Push to the remote with git push. 4) If git identity is not configured, use "manager" as name and "manager@users.noreply.github.com" as email (repo-level only, not global). 5) Report what you did briefly. If there is nothing to commit or push, just say so.';
       wsSend({ type: 'command', id: selectedAgent, text: prompt, model: state.model, mode: state.mode, label: '> /push' });
       appendToTerminal(selectedAgent, '> /push', 'term-cmd');
+      showWormhole();
+    }
+
+    function showWormhole() {
+      const out = document.getElementById('terminal-output');
+      if (!out) return;
+      const rect = out.getBoundingClientRect();
+
+      const overlay = document.createElement('canvas');
+      overlay.width = rect.width * 2;
+      overlay.height = rect.height * 2;
+      overlay.style.cssText = `position:absolute;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;`;
+      document.body.appendChild(overlay);
+      const ctx = overlay.getContext('2d');
+      ctx.scale(2, 2);
+      const w = rect.width, h = rect.height;
+      const cx = w / 2, cy = h / 2;
+      const maxR = Math.max(w, h) * 0.7;
+
+      // Pre-generate infalling "code" particles
+      const HEX = '0123456789abcdef';
+      const MATRIX = 'アイウエオカキクケコサシスセソタチツテト<>{}[]=+/*';
+      const particles = [];
+      const pCount = 70;
+      for (let i = 0; i < pCount; i++) {
+        particles.push({
+          angle: Math.random() * Math.PI * 2,
+          startR: maxR * (0.55 + Math.random() * 0.6),
+          char: Math.random() < 0.55
+            ? Array.from({ length: 6 }, () => HEX[Math.floor(Math.random() * 16)]).join('')
+            : MATRIX[Math.floor(Math.random() * MATRIX.length)],
+          delay: Math.random() * 0.3,
+          spinRate: 2.5 + Math.random() * 2.5,
+          green: Math.random() < 0.5,
+          size: 10 + Math.random() * 5
+        });
+      }
+
+      const startTime = Date.now();
+      const duration = 1400;
+
+      function animate() {
+        const elapsed = Date.now() - startTime;
+        const p = Math.min(elapsed / duration, 1);
+        ctx.clearRect(0, 0, w, h);
+
+        // Background darken pulse (space void)
+        if (p < 0.75) {
+          const fadeIn = Math.min(p / 0.1, 1);
+          const fadeOut = p < 0.55 ? 1 : Math.max(0, 1 - (p - 0.55) / 0.2);
+          ctx.fillStyle = `rgba(0,8,25,${fadeIn * fadeOut * 0.4})`;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Spiral arms — 3 rotating arms twisting inward
+        if (p > 0.05 && p < 0.72) {
+          const armAlpha = Math.min((p - 0.05) / 0.15, 1) * Math.max(0, 1 - Math.max(0, p - 0.55) / 0.17);
+          const rotation = p * 9;
+          const arms = 3;
+          for (let a = 0; a < arms; a++) {
+            const armPhase = (a / arms) * Math.PI * 2 + rotation;
+            ctx.strokeStyle = `rgba(80,200,255,${armAlpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let t = 0; t <= 1; t += 0.025) {
+              const r = t * maxR * 0.7;
+              const theta = armPhase + t * 6;
+              const x = cx + Math.cos(theta) * r;
+              const y = cy + Math.sin(theta) * r;
+              if (t === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+        }
+
+        // Infalling code particles — spiral toward center, accelerate inward
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        particles.forEach(pt => {
+          const localP = (p - pt.delay) / (0.62 - pt.delay);
+          if (localP < 0 || localP > 1) return;
+          const ease = localP * localP; // accelerate inward
+          const r = pt.startR * (1 - ease);
+          const theta = pt.angle + localP * pt.spinRate;
+          const x = cx + Math.cos(theta) * r;
+          const y = cy + Math.sin(theta) * r;
+          ctx.font = `${pt.size}px "Courier New", monospace`;
+          const fade = Math.max(0, 1 - localP * 0.4);
+          ctx.fillStyle = pt.green
+            ? `rgba(80,255,160,${fade})`
+            : `rgba(140,220,255,${fade})`;
+          ctx.fillText(pt.char, x, y);
+        });
+
+        // Vortex core — dark void with cyan rim
+        const voidSize = p < 0.55 ? 18 + p * 90 : 18 + 0.55 * 90 + (p - 0.55) * 220;
+        const voidAlpha = p < 0.7 ? 1 : Math.max(0, 1 - (p - 0.7) / 0.3);
+        const voidGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, voidSize);
+        voidGrad.addColorStop(0, `rgba(0,0,10,${voidAlpha})`);
+        voidGrad.addColorStop(0.55, `rgba(10,40,90,${voidAlpha * 0.7})`);
+        voidGrad.addColorStop(0.85, `rgba(60,180,255,${voidAlpha * 0.9})`);
+        voidGrad.addColorStop(1, `rgba(120,220,255,0)`);
+        ctx.fillStyle = voidGrad;
+        ctx.fillRect(cx - voidSize, cy - voidSize, voidSize * 2, voidSize * 2);
+
+        // Collapse flash + shockwave rings around p=0.55
+        if (p > 0.5 && p < 0.9) {
+          const shockP = (p - 0.5) / 0.4;
+          if (shockP < 0.2) {
+            const flash = (1 - shockP / 0.2) * 0.75;
+            ctx.fillStyle = `rgba(200,240,255,${flash})`;
+            ctx.fillRect(0, 0, w, h);
+          }
+          for (let ring = 0; ring < 2; ring++) {
+            const ringP = shockP - ring * 0.18;
+            if (ringP < 0 || ringP > 1) continue;
+            const rr = ringP * maxR * 1.15;
+            const rAlpha = Math.max(0, 1 - ringP) * 0.75;
+            ctx.strokeStyle = `rgba(120,220,255,${rAlpha})`;
+            ctx.lineWidth = 3 * (1 - ringP) + 1;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+        // "SHIPPED IT!" text — slams in with overshoot bounce after the collapse
+        if (p > 0.55) {
+          const tP = (p - 0.55) / 0.45;
+          const textScale = tP < 0.15 ? tP / 0.15 : tP < 0.25 ? 1 + (1 - (tP - 0.15) / 0.1) * 0.35 : 1;
+          const textAlpha = tP < 0.2 ? 1 : tP > 0.7 ? Math.max(0, (1 - tP) / 0.3) : 1;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.scale(textScale, textScale);
+          ctx.font = 'bold 40px Impact, "Arial Black", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          // Shadow
+          ctx.fillStyle = `rgba(0,20,60,${textAlpha})`;
+          ctx.fillText('SHIPPED IT!', 2, 2);
+          // Main body
+          ctx.fillStyle = `rgba(240,250,255,${textAlpha})`;
+          ctx.fillText('SHIPPED IT!', 0, 0);
+          // Electric cyan outline
+          ctx.strokeStyle = `rgba(80,200,255,${textAlpha * 0.9})`;
+          ctx.lineWidth = 1.5;
+          ctx.strokeText('SHIPPED IT!', 0, 0);
+          ctx.restore();
+        }
+
+        if (p < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          overlay.remove();
+        }
+      }
+
+      requestAnimationFrame(animate);
     }
 
     function showStarburst() {
@@ -3231,7 +3390,12 @@
     }
     function permissionAllow(agentId, toolsJson, permId) {
       const toolNames = JSON.parse(toolsJson);
-      wsSend({ type: 'permission_allow', id: agentId, tool_names: toolNames });
+      // Include CURRENT model/mode so server's retry picks up any dropdown change
+      // the user made after sending the original command. Without this the retry
+      // reuses the stale _lastCmd.mode captured at original sendCommand time —
+      // e.g. switching to Bypass mid-task had no effect until the NEXT command.
+      const state = agentState[agentId] || {};
+      wsSend({ type: 'permission_allow', id: agentId, tool_names: toolNames, model: state.model, mode: state.mode });
       const label = toolNames.join(', ');
       const newHTML = `<span class="perm-icon">✓</span> <span class="perm-text">Allowed <strong>${label}</strong> — resuming...</span>`;
       const el = document.getElementById(permId);
@@ -3241,7 +3405,8 @@
     }
     function permissionAllowAll(agentId, toolsJson, permId) {
       const toolNames = JSON.parse(toolsJson);
-      wsSend({ type: 'permission_allow_all', id: agentId, tool_names: toolNames });
+      const state = agentState[agentId] || {};
+      wsSend({ type: 'permission_allow_all', id: agentId, tool_names: toolNames, model: state.model, mode: state.mode });
       const newHTML = '<span class="perm-icon">✓</span> <span class="perm-text">All tools allowed — resuming...</span>';
       const el = document.getElementById(permId);
       if (el) el.innerHTML = newHTML;

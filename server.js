@@ -1027,8 +1027,14 @@ wss.on('connection', (ws, req) => {
           }
           const lastCmd = paAgent._lastCmd;
           if (lastCmd && paAgent.sessionId) {
+            // Prefer current UI model/mode from the client; fall back to _lastCmd.
+            // Lets the user flip to Bypass mid-task and have the retry actually
+            // honor it, instead of re-spawning in the stale mode captured at
+            // original send time (which would just hit another permission prompt).
+            const retryModel = msg.model || lastCmd.model;
+            const retryMode = msg.mode || lastCmd.mode;
             const retryText = `The following tools have been approved: ${paTools.join(', ')}. Please retry your previous action.`;
-            sendCommand(msg.id, retryText, lastCmd.model, lastCmd.mode, null, null);
+            sendCommand(msg.id, retryText, retryModel, retryMode, null, null);
           }
         }
         break;
@@ -1050,8 +1056,11 @@ wss.on('connection', (ws, req) => {
           }
           const lastCmd = paaAgent._lastCmd;
           if (lastCmd && paaAgent.sessionId) {
+            // Same rationale as permission_allow: honor current UI mode on retry.
+            const retryModel = msg.model || lastCmd.model;
+            const retryMode = msg.mode || lastCmd.mode;
             const retryText = 'All tool permissions have been granted. Please retry your previous action.';
-            sendCommand(msg.id, retryText, lastCmd.model, lastCmd.mode, null, null);
+            sendCommand(msg.id, retryText, retryModel, retryMode, null, null);
           }
         }
         break;
