@@ -537,14 +537,21 @@ function sendCommand(id, text, model, mode, images, label) {
     args.push('--permission-mode', 'plan');
   }
 
-  // Allowed tools (accumulated from user approvals)
-  if (agent._allowedTools && agent._allowedTools.size > 0 && mode !== 'bypass') {
-    args.push('--allowed-tools', ...agent._allowedTools);
-  }
-
-  // Resume session if we have one
+  // Resume session if we have one — MUST come before --allowed-tools.
+  // `--allowed-tools` is variadic (`<tools...>`); when tools are pushed as
+  // separate args, the parser eats the following `--resume <uuid>` as more
+  // tool names → resume silently fails → agent spawns a fresh session and
+  // loses all prior context. (Bug surfaced after permission_allow_all retries.)
   if (agent.sessionId) {
     args.push('--resume', agent.sessionId);
+  }
+
+  // Allowed tools (accumulated from user approvals).
+  // Pass as ONE comma-separated arg, matching the documented format
+  // (`--allowed-tools "Bash(git *) Edit"`). Spreading into N args is what
+  // triggered the variadic-eats-next-flag bug above; keep this defensive.
+  if (agent._allowedTools && agent._allowedTools.size > 0 && mode !== 'bypass') {
+    args.push('--allowed-tools', [...agent._allowedTools].join(','));
   }
 
   // Kill existing process if still running

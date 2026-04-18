@@ -38,6 +38,8 @@ Claude CLI processes (one per agent)
 
 The server spawns Claude CLI with `--output-format stream-json --input-format stream-json`. It keeps the process alive between commands using `--resume <sessionId>`. User commands go in via `proc.stdin.write()`, responses stream back via `proc.stdout` as NDJSON lines.
 
+**CRITICAL — argument order in `sendCommand`:** `--resume <id>` MUST be pushed BEFORE `--allowed-tools`. The CLI declares `--allowed-tools <tools...>` as variadic; if `--resume <uuid>` follows it, the parser may swallow `--resume` and the UUID as additional tool names, the resume silently fails, and the agent spawns a fresh session with no prior context. Symptom: after clicking "ALLOW ALL" on a permission prompt, the agent responds "Looking at the current state, it seems like you might have been in the middle of something..." Also pass tools as ONE comma-separated arg (`tools.join(',')`), not multiple positional args — that's the documented format and the safer pattern.
+
 ### Agent lifecycle
 
 ```
