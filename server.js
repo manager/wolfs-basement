@@ -1056,11 +1056,21 @@ wss.on('connection', (ws, req) => {
           }
           const lastCmd = paaAgent._lastCmd;
           if (lastCmd && paaAgent.sessionId) {
-            // Same rationale as permission_allow: honor current UI mode on retry.
+            // ALLOW ALL means "grant everything" — force bypass for the retry spawn,
+            // regardless of what the client's mode dropdown says. Otherwise any desync
+            // between state.mode and the user's actual intent (stale localStorage, race
+            // with setAgentMode, etc.) makes the retry fall back to Normal mode, the
+            // CLI spawns without --dangerously-skip-permissions, and the same command
+            // hits another permission prompt — exactly what the user just dismissed.
+            // Future fresh commands still use the UI mode; this forcing only covers
+            // the single retry triggered by the button click.
             const retryModel = msg.model || lastCmd.model;
-            const retryMode = msg.mode || lastCmd.mode;
+            const retryMode = 'bypass';
+            debug(`[Agent ${msg.id}] ALLOW ALL retry — forcing bypass (client mode=${msg.mode}, lastCmd mode=${lastCmd.mode}, sessionId=${paaAgent.sessionId})`);
             const retryText = 'All tool permissions have been granted. Please retry your previous action.';
             sendCommand(msg.id, retryText, retryModel, retryMode, null, null);
+          } else {
+            debug(`[Agent ${msg.id}] ALLOW ALL with no retry — lastCmd=${!!lastCmd}, sessionId=${paaAgent.sessionId}`);
           }
         }
         break;

@@ -40,6 +40,8 @@ The server spawns Claude CLI with `--output-format stream-json --input-format st
 
 **CRITICAL — argument order in `sendCommand`:** `--resume <id>` MUST be pushed BEFORE `--allowed-tools`. The CLI declares `--allowed-tools <tools...>` as variadic; if `--resume <uuid>` follows it, the parser may swallow `--resume` and the UUID as additional tool names, the resume silently fails, and the agent spawns a fresh session with no prior context. Symptom: after clicking "ALLOW ALL" on a permission prompt, the agent responds "Looking at the current state, it seems like you might have been in the middle of something..." Also pass tools as ONE comma-separated arg (`tools.join(',')`), not multiple positional args — that's the documented format and the safer pattern.
 
+**CRITICAL — `permission_allow_all` forces bypass on the retry spawn**, ignoring `msg.mode` from the client. The button literally means "grant everything", and any state-sync issue between `agentState[id].mode` and the user's intent (stale localStorage value, a race with `setAgentMode`, dropdown reinitialization) used to make the retry fall back to Normal mode — spawning the CLI without `--dangerously-skip-permissions` so the very next tool call hit another permission prompt. Symptom: user clicks ALLOW ALL, terminal immediately shows `[Permission mode: Normal]` and the agent re-asks for permission (or, if the session also got dropped, replies "it looks like this is the start of our conversation"). The UI mode dropdown still governs **fresh** commands — the forcing only applies to the single retry triggered by the button click. `permission_allow` (single-tool approval) keeps the UI mode because approving one specific tool doesn't imply bypass.
+
 ### Agent lifecycle
 
 ```
