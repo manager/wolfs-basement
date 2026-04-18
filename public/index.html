@@ -821,6 +821,7 @@
     #terminal-output .term-line.term-raw { white-space: pre-wrap; }
     #terminal-output .term-cmd { color: #e8a050; font-weight: 600; margin-top: 12px; padding: 6px 10px; border-bottom: 1px solid #2a1810; border-left: 3px solid #cc6030; background: rgba(204,96,48,0.06); border-radius: 2px; }
     #terminal-output .term-cmd .cmd-master-tag { color: #cc6030; font-weight: 700; margin-right: 6px; letter-spacing: 1px; font-size: 11px; }
+    #terminal-output .term-cmd .sendto-msg-chip { font-weight: 600; font-size: 11px; letter-spacing: 0.5px; text-decoration: underline dotted; text-underline-offset: 2px; margin-right: 4px; cursor: help; }
     #terminal-output .term-text { color: #c0a898; padding: 4px 10px; border-left: 3px solid var(--agent-resp-color, #6a5040); margin-top: 2px; }
     #terminal-output .term-response-start { background: var(--agent-resp-tint, rgba(106,80,64,0.08)); border-radius: 3px 3px 0 0; padding-top: 6px; margin-top: 6px; }
     #terminal-output .term-text .agent-resp-tag { font-weight: 700; font-size: 11px; letter-spacing: 1px; margin-right: 6px; }
@@ -2334,8 +2335,14 @@
       if (targetState.status === 'sleeping') {
         wsSend({ type: 'summon', id: targetId });
       }
-      wsSend({ type: 'command', id: targetId, text: prompt, model: targetState.model, mode: targetState.mode, label: `> [from ${senderName}] ${instruction}` });
-      appendToTerminal(targetId, `<span class="cmd-master-tag" style="color:${AGENT_COLORS[src.sourceAgent]}">FROM ${AGENT_SHORT[src.sourceAgent]} &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${escapeHtml(instruction)}`, 'term-cmd', true);
+      wsSend({ type: 'command', id: targetId, text: prompt, model: targetState.model, mode: targetState.mode, label: `> [from ${senderName}] [${senderName}'s Message] ${instruction}` });
+      // Forwarded-message chip — hover shows a preview of the forwarded text so the
+      // recipient (user watching the target's terminal) can see at a glance that
+      // ${senderName}'s full response rode along with the instruction, not just the
+      // instruction text visible inline. Matches the [+1 file] chip pattern.
+      const previewText = src.responseText.length > 400 ? src.responseText.slice(0, 400) + '…' : src.responseText;
+      const chip = `<span class="sendto-msg-chip" style="color:${AGENT_COLORS[src.sourceAgent]}" title="${escapeHtml(previewText)}">[${escapeHtml(senderName)}'s Message]</span>`;
+      appendToTerminal(targetId, `<span class="cmd-master-tag" style="color:${AGENT_COLORS[src.sourceAgent]}">FROM ${AGENT_SHORT[src.sourceAgent]} &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${chip} ${escapeHtml(instruction)}`, 'term-cmd', true);
       targetState.messageCount++;
       // Flash the send button to confirm
       if (src.btn) {
@@ -3587,10 +3594,11 @@
           msg.images = pendingImages.map(img => ({ data: img.data, mediaType: img.mediaType }));
         }
         const totalFiles = pendingImages.length + pendingFiles.length;
-        msg.label = totalFiles > 0 ? `> ${rawText || '(files)'} [+${totalFiles} file${totalFiles > 1 ? 's' : ''}]` : `> ${rawText}`;
-        // Build rich HTML label for terminal display (preserves bold/italic from contenteditable)
-        const fileTag = totalFiles > 0 ? ` <span style="text-decoration:underline">[+${totalFiles} file${totalFiles > 1 ? 's' : ''}]</span>` : '';
-        const labelHtml = `<span class="cmd-master-tag">MASTER &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${displayHtml}${fileTag}`;
+        msg.label = totalFiles > 0 ? `> [+${totalFiles} file${totalFiles > 1 ? 's' : ''}] ${rawText || '(files)'}` : `> ${rawText}`;
+        // Build rich HTML label for terminal display (preserves bold/italic from contenteditable).
+        // Chip goes BEFORE the text so attachment context reads left-to-right with the message.
+        const fileTag = totalFiles > 0 ? `<span style="text-decoration:underline">[+${totalFiles} file${totalFiles > 1 ? 's' : ''}]</span> ` : '';
+        const labelHtml = `<span class="cmd-master-tag">MASTER &gt;</span><span class="term-timestamp">${formatTimestamp(Date.now())}</span> ${fileTag}${displayHtml}`;
         wsSend(msg);
         agentState[selectedAgent].messageCount++;
         agentState[selectedAgent]._initDone = false; // re-enable INIT pulse tracking

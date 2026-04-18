@@ -42,6 +42,8 @@ The server spawns Claude CLI with `--output-format stream-json --input-format st
 
 **CRITICAL — `permission_allow_all` forces bypass on the retry spawn**, ignoring `msg.mode` from the client. The button literally means "grant everything", and any state-sync issue between `agentState[id].mode` and the user's intent (stale localStorage value, a race with `setAgentMode`, dropdown reinitialization) used to make the retry fall back to Normal mode — spawning the CLI without `--dangerously-skip-permissions` so the very next tool call hit another permission prompt. Symptom: user clicks ALLOW ALL, terminal immediately shows `[Permission mode: Normal]` and the agent re-asks for permission (or, if the session also got dropped, replies "it looks like this is the start of our conversation"). The UI mode dropdown still governs **fresh** commands — the forcing only applies to the single retry triggered by the button click. `permission_allow` (single-tool approval) keeps the UI mode because approving one specific tool doesn't imply bypass.
 
+**The `[Permission mode: <X>]` label reflects actual CLI state, not UI intent.** Tested: spawning the CLI with `--dangerously-skip-permissions` makes the system init event emit `permissionMode: "bypassPermissions"`; no flag emits `"default"` (mapped to "Normal"); `--permission-mode plan` emits `"plan"`. So if the terminal shows "Normal" while the UI says Bypass, the CLI really spawned without the flag — do not mask the label to match UI intent, that just hides bugs.
+
 ### Agent lifecycle
 
 ```
@@ -110,6 +112,12 @@ Two parallel attachment arrays: `pendingImages` (base64 image data sent as `type
 3. **Drag & drop** on `#command-bar` — also routes through `attachFile(file)`.
 
 `attachFile(file)` dispatches: images → `pendingImages` (base64 via `readAsDataURL`), everything else → `pendingFiles` (text via `readAsText`, 500KB limit). On send, text file contents are prepended to the prompt as `--- filename ---\ncontent\n--- end filename ---` blocks. Images go via `msg.images` to the server's `sendCommand` which builds `type: 'image'` content blocks for Claude CLI stdin. `updateAttachmentIndicator()` shows both types with per-item remove buttons. Layout: `.cmd-prompt` is `flex-direction: column` with `.cmd-master-line` wrapper keeping "MASTER >" on one line and the paperclip below it.
+
+**Chip placement convention:** `[+N file]` and `[<Sender>'s Message]` chips go BEFORE the user text in the term-cmd line (after the timestamp, before the message body). This is intentional — the attachment/forwarding context should read left-to-right with the message, not trail it. Applies to both `labelHtml` (client terminal render) and the server-side `label` string. See `sendUserCommand()` and `_executeSendTo()`.
+
+### SEND TO (forward a response between agents)
+
+`sendToAgent()` → dropdown → `_pickSendToTarget()` → instruction input → `_executeSendTo(targetId, instruction)`. The target receives a composed prompt: `"Agent <Sender> sent you this:\n\n<full response text>\n\n<instruction>"`. The target's terminal shows a `FROM <SENDER> >` line with a `[<Sender>'s Message]` chip (class `.sendto-msg-chip`, dotted underline in the sender's accent color, `title=` holds a 400-char preview of the forwarded text for hover inspection). The chip is what tells the user at a glance that the sender's *full response* rode along — otherwise the line only shows the short instruction and the forwarded payload is invisible in the log.
 
 ### Project folder select + git check
 
