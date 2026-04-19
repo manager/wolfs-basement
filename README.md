@@ -1,4 +1,7 @@
 # Wolf's Basement
+
+> **Status: v1.0 — stable release.** Active development continues in a successor fork (V2). This repo receives critical fixes only.
+
 A visual RPG terminal multiplexer for [Claude Code](https://claude.ai/code) CLI.
 
 <img width="1918" height="988" alt="image" src="https://github.com/user-attachments/assets/e8b99f92-e958-43a3-ba09-e5295def5ac3" />
@@ -25,7 +28,7 @@ Four pixel-art dungeon agents — each running an independent Claude Code sessio
 ```bash
 npm install
 npm start
-# Open http://localhost:3000
+# Open http://localhost:12358
 ```
 
 No build step. No bundler. No framework. One `node server.js` serves everything.
@@ -57,6 +60,8 @@ Wolf's Basement has two view modes, toggled from the header bar:
 <img width="1919" height="991" alt="image" src="https://github.com/user-attachments/assets/bd9d2c87-a53d-4be2-93e1-b297bf465161" />
 
 Switch between them anytime. The split ratio is saved to localStorage and restored on reload.
+
+**Compact Mode** — A density toggle in the header collapses the terminal panel to a dense layout: agent cards shrink to minimal tiles (icons/names hidden, status dots visible), the status bar reflows from 3 rows into 2, the terminal header hides, and the "MASTER >" prompt label + paperclip collapse. Good for side-by-side multitasking or smaller screens. Setting persists across reloads.
 
 **The game is fully refresh-safe.** Press **F5** or refresh your browser at any point — agent sessions, terminal history, card order, model/mode settings, and split position all survive. If the game canvas looks off after resizing or switching modes, a quick **F5** re-renders everything cleanly. Refresh is your friend, not your enemy.
 
@@ -113,7 +118,7 @@ The right panel is a multi-tab terminal interface — one per agent. This is the
 
 ### Core Functionality
 
-**Agent Selection** — Click an agent card or press `1-4` to switch terminals. `Ctrl+Shift+1-4` switches by visual card position (respects drag-reorder).
+**Agent Selection** — Click an agent card or press `1-4` to switch terminals. `Ctrl+Shift+1-4` switches by visual card position (respects drag-reorder). Cards can be dragged to reorder the roster; order persists across reloads.
 <img width="1066" height="121" alt="image" src="https://github.com/user-attachments/assets/586ae5cc-485b-4a21-a558-76cda76d23ef" />
 
 
@@ -121,9 +126,13 @@ The right panel is a multi-tab terminal interface — one per agent. This is the
 
 **Session Persistence** — Each agent maintains a Claude CLI session via `--resume <sessionId>`. Output buffers survive browser refresh — reconnecting restores the full conversation history.
 
-**Image Attachments** — Paste images with `Ctrl+V` or drag-and-drop files onto the terminal. Images are sent to the Claude session as base64-encoded content alongside the text command.
+**File Attachments** — Three ways to attach: **paperclip button** below the `MASTER >` prompt, `Ctrl+V` paste, or drag-and-drop onto the command bar. Images are sent as base64-encoded content blocks; text/code files (up to 500 KB each) are prepended to the prompt as delimited blocks. Per-agent attachment queues — switching tabs preserves each agent's pending files independently. A chip strip above the input shows every pending attachment with a remove button.
+
+**Send To Agent** — Forward a response from one agent to another with an instruction. Click **SEND TO** in a response's toolbar → pick target agent → type instruction. The target receives the full original response with your instruction appended, and the terminal line shows a `[<Sender>'s Message]` chip (hover to preview the forwarded text). Enables agent-to-agent handoff for review, testing, or multi-step pipelines — e.g. Igor writes a feature, Elon reviews it.
 
 **Terminal Search** — Inline search bar filters terminal output with match count and prev/next navigation.
+
+**Tab Indicator** — The browser tab title and favicon update automatically when agents are working — one 🔥 per active agent appended to the tab title. You'll see activity in other windows or pinned tabs without needing to switch back.
 
 ### Model and Mode Selection
 
@@ -172,7 +181,7 @@ The bottom status bar (per-agent) displays:
 | **PUSH button** | Pulses when commits need pushing or many files are dirty |
 | **Context window** | Token usage bar — green/yellow/orange/red based on fill |
 | **System stats** | CPU %, RAM usage, session uptime, idle timer with color escalation |
-| **Auth status** | Claude authentication indicator — click to open auth panel (OAuth or API key) |
+| **Auth status** | Claude authentication indicator — click to open auth panel (OAuth or API key). The panel also shows the global git identity (name + email) used for all agent commits; the email field is inline-editable and writes to `git config --global user.email`. |
 | **Dev server** | Start/stop/restart `npm run dev` for the agent's project |
 
 Top-right auth status:
@@ -194,7 +203,7 @@ Top-right auth status:
 | **Summon** (wake) | Click agent card, or send any command to a sleeping agent |
 | **Sleep** (kill) | Click the X on the agent card — kills the Claude CLI process |
 | **Stop** | Press `Escape` while agent is working — cancels current operation, keeps session alive |
-| **Set working directory** | Click the directory path in status bar — opens native Windows folder picker |
+| **Set working directory** | Click the directory path in status bar — opens native Windows folder picker. On selection, the server runs `git fetch` and warns in the terminal if the branch is behind the remote. |
 
 ### Dev Server Manager
 
@@ -285,7 +294,7 @@ Wolf's Basement is designed for long sessions — hours of continuous multi-agen
 - **Flat memory profile** — All server-side buffers (agent output, CLI line parsing, dev server logs) are capped. Nothing grows unbounded. Image payloads are processed and released immediately, never pinned in memory between commands.
 - **Minimal footprint** — The server is a single Node.js process with two dependencies (Express + ws). No background workers, no ORMs, no caches. Idle CPU usage is near zero; active usage is dominated by the Claude CLI subprocesses, not the server.
 - **Client-side caps** — Terminal history is capped at 500 lines per agent. Tool call groups are capped at 50. Search state is released on every terminal rebuild. DOM growth is bounded regardless of session length.
-- **Localhost-only binding** — The server binds to `127.0.0.1`, not `0.0.0.0`. No network exposure, no auth overhead.
+- **Localhost-only binding** — The server binds to `127.0.0.1`, not `0.0.0.0`. No network exposure, no auth overhead. The WebSocket handler also enforces an Origin allowlist (localhost/127.0.0.1 on the server's port) to block CSRF-style attacks where a malicious site could open `ws://localhost:PORT` from the user's browser.
 - **No polling waste** — System stats poll every 3s, git status every 5s, both lightweight. WebSocket push is used for all real-time updates (agent output, status changes, dev server events). No long-polling, no SSE reconnect loops.
 
 
